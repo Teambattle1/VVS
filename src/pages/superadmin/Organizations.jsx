@@ -113,15 +113,19 @@ export default function SuperAdminOrganizations() {
       {creating && (
         <CreateOrgDialog
           onClose={() => setCreating(false)}
-          onCreate={(data) => {
-            const newOrg = addOrg(data)
-            const onboardingUrl = `${window.location.origin}/onboarding?org=${newOrg.id}`
-            if (newOrg.contact_email) {
-              notifyNewOrgWelcome({ org: newOrg, adminEmail: newOrg.contact_email, onboardingUrl })
+          onCreate={async (data) => {
+            try {
+              const newOrg = await addOrg(data)
+              const onboardingUrl = `${window.location.origin}/onboarding?org=${newOrg.id}`
+              if (newOrg.contact_email) {
+                notifyNewOrgWelcome({ org: newOrg, adminEmail: newOrg.contact_email, onboardingUrl })
+              }
+              toast.success(`${newOrg.name} oprettet`)
+              setCreating(false)
+              navigate(`/onboarding?org=${newOrg.id}`)
+            } catch {
+              // Fejl er allerede vist via OrgContext.reportDbError
             }
-            toast.success(`${newOrg.name} oprettet`)
-            setCreating(false)
-            navigate(`/onboarding?org=${newOrg.id}`)
           }}
         />
       )}

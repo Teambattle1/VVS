@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react'
 import { useAuth } from './AuthContext.jsx'
+import { useToast } from './ToastContext.jsx'
 import { hasSupabase, supabase } from '../lib/supabase.js'
 import { INITIAL_TEAM } from '../lib/mockUsers.js'
 import { INITIAL_ORGS } from '../lib/mockOrgs.js'
@@ -14,9 +15,16 @@ function uid(prefix) {
 
 export function OrgProvider({ children }) {
   const { user } = useAuth()
+  const toast = useToast()
   const [org, setOrg] = useState(null)
   const [team, setTeam] = useState(INITIAL_TEAM)
-  const [allOrgs, setAllOrgs] = useState(INITIAL_ORGS)
+  const [allOrgs, setAllOrgs] = useState(hasSupabase ? [] : INITIAL_ORGS)
+
+  function reportDbError(where, err) {
+    // eslint-disable-next-line no-console
+    console.warn(`[OrgContext] ${where}:`, err)
+    toast?.error?.(`${where}: ${err?.message || err}`, { duration: 6000 })
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -100,8 +108,8 @@ export function OrgProvider({ children }) {
           .eq('id', currentId)
         if (error) throw error
       } catch (err) {
-        // eslint-disable-next-line no-console
-        console.warn('[OrgContext] updateOrg DB-write fejlede:', err.message)
+        reportDbError('Kunne ikke gemme org-ændring', err)
+        throw err
       }
     }
   }
@@ -127,9 +135,8 @@ export function OrgProvider({ children }) {
     setTeam((prev) => prev.filter((u) => u.id !== userId))
   }
 
-  function addOrg(data) {
-    const newOrg = {
-      id: uid('org'),
+  async function addOrg(data) {
+    const payload = {
       name: data.name.trim(),
       slug: data.slug?.trim() || data.name.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
       cvr: data.cvr?.trim() || '',
@@ -143,17 +150,70 @@ export function OrgProvider({ children }) {
       default_markup_percent: Number(data.default_markup_percent) || 25,
       subscription_tier: data.subscription_tier || 'trial',
       subscription_status: 'active',
-      created_at: new Date().toISOString(),
-      users_count: 0,
     }
+
+    // Persist til Supabase hvis muligt
+    if (hasSupabase) {
+      try {
+        const { data: dbRow, error } = await supabase
+          .from('vvs_organizations')
+          .insert(payload)
+          .select()
+          .single()
+        if (error) throw error
+        setAllOrgs((prev) => [{ ...dbRow, users_count: 0 }, ...prev])
+        return dbRow
+      } catch (err) {
+        reportDbError('Kunne ikke oprette organisation', err)
+        throw err
+      }
+    }
+
+    // Mock fallback
+    const newOrg = { id: uid('org'), ...payload, created_at: new Date().toISOString(), users_count: 0 }
     setAllOrgs((prev) => [newOrg, ...prev])
     return newOrg
   }
 
-  function updateOrgById(orgId, patch) {
+  async function updateOrgById(orgId, patch) {
     setAllOrgs((prev) => prev.map((o) => (o.id === orgId ? { ...o, ...patch } : o)))
     if (org?.id === orgId) setOrg((prev) => ({ ...prev, ...patch }))
+
+    if (hasSupabase && orgId && !orgId.startsWith('org-mock') && !orgId.startsWith('org-')) {
+      try {
+        const { error } = await supabase
+          .from('vvs_organizations')
+          .update(patch)
+          .eq('id', orgId)
+        if (error) throw error
+      } catch (err) {
+        reportDbError('Kunne ikke gemme org-ændring', err)
+      }
+    }
   }
+
+  // Load alle orgs (til super-admin) ved login
+  useEffect(() => {
+    if (!hasSupabase || !user) return
+    let cancelled = false
+    ;(async () => {
+      try {
+        const { data, error } = await supabase
+          .from('vvs_organizations')
+          .select('*')
+          .order('created_at', { ascending: false })
+        if (error) throw error
+        if (!cancelled) setAllOrgs(data || [])
+      } catch (err) {
+        // Ignorer - ikke alle brugere kan se alle orgs (RLS), og det er OK
+        // eslint-disable-next-line no-console
+        console.warn('[OrgContext] Kunne ikke loade allOrgs:', err.message)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [user])
 
   const value = useMemo(
     () => ({
