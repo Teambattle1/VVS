@@ -10,6 +10,26 @@
 > - ☐ = skal gøres af dig (manuel handling)
 > - ⚙️ = scaffolding klar i koden; aktiveres automatisk når env-vars er sat
 > - 📄 = kode-filer du skal åbne / opdatere bagefter
+> - 🔴 = IKKE LAVET (kritisk mangel)
+> - 🟡 = delvist / venter på eksternt system
+> - 🟢 = færdig og verificeret
+
+---
+
+## 📋 TODO — Skal laves (prioriteret)
+
+Disse eksterne systemer er **ikke** sat op endnu. Alt andet fungerer i mock-mode uden dem:
+
+| # | System | Formål | Blocker? |
+|---|---|---|---|
+| 1 | 🔴 **Resend** | Sende emails til kunder + teammedlemmer | Nej — blot stille |
+| 2 | 🔴 **CPSMS** | Sende SMS til kunder (tilbud-link) | Nej — blot ingen SMS |
+| 3 | 🔴 Supabase Auth omlægning | Rigtig login i stedet for mock localStorage | Ja — før go-live |
+| 4 | 🔴 JobsContext Supabase omlægning | Data persistes i DB i stedet for hukommelse | Ja — før go-live |
+| 5 | 🔴 Netlify deploy | Få sitet online | Ja — før go-live |
+| 6 | 🔴 DNS `vvs.eventday.dk` | Rigtigt domæne | Ja — før go-live |
+
+Se detaljerne under hver sektion nedenfor.
 
 ---
 
@@ -123,7 +143,10 @@ serve(async (req) => {
 
 ---
 
-## 2. Resend (email)
+## 2. Resend (email) — 🔴 IKKE LAVET
+
+> **Status:** Ingen konto oprettet. Notifikations-scaffold findes i koden men kalder ingenting.
+> Indtil dette er på plads: alle emails logges kun til browser-console (mock-mode).
 
 ☐ **Opret konto** på [resend.com](https://resend.com) — gratis op til 100 emails/dag
 
@@ -142,7 +165,10 @@ Hvor emails sendes fra i koden:
 
 ---
 
-## 3. CPSMS (SMS — valgfrit)
+## 3. CPSMS (SMS) — 🔴 IKKE LAVET
+
+> **Status:** Ingen konto oprettet. `ef-send-sms` edge function findes ikke endnu.
+> Indtil dette er på plads: alle SMS'er logges kun til browser-console (mock-mode).
 
 ☐ **Opret konto** på [cpsms.dk](https://www.cpsms.dk/)
 

@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react'
 import { useAuth } from './AuthContext.jsx'
+import { hasSupabase, supabase } from '../lib/supabase.js'
 import { INITIAL_TEAM } from '../lib/mockUsers.js'
 import { INITIAL_ORGS } from '../lib/mockOrgs.js'
 
@@ -18,10 +19,56 @@ export function OrgProvider({ children }) {
   const [allOrgs, setAllOrgs] = useState(INITIAL_ORGS)
 
   useEffect(() => {
-    if (user) {
-      setOrg(MOCK_ORG)
-    } else {
-      setOrg(null)
+    let cancelled = false
+
+    async function loadOrgForUser() {
+      if (!user) {
+        setOrg(null)
+        return
+      }
+
+      if (hasSupabase) {
+        // Slå vvs_users op for at finde organization_id for denne auth-user
+        try {
+          const { data: profile, error: profileError } = await supabase
+            .from('vvs_users')
+            .select('organization_id, name, role')
+            .eq('user_id', user.id)
+            .eq('active', true)
+            .maybeSingle()
+
+          if (profileError) throw profileError
+
+          if (profile?.organization_id) {
+            const { data: orgRow, error: orgError } = await supabase
+              .from('vvs_organizations')
+              .select('*')
+              .eq('id', profile.organization_id)
+              .maybeSingle()
+
+            if (orgError) throw orgError
+            if (!cancelled && orgRow) {
+              setOrg(orgRow)
+              return
+            }
+          }
+
+          // Ingen vvs_users-record endnu (fx ny bruger som ikke er linket til org)
+          // Fall back til mock så UI ikke er tomt
+          if (!cancelled) setOrg(MOCK_ORG)
+        } catch (err) {
+          // eslint-disable-next-line no-console
+          console.warn('[OrgContext] Supabase org-lookup fejlede, bruger mock:', err.message)
+          if (!cancelled) setOrg(MOCK_ORG)
+        }
+      } else {
+        setOrg(MOCK_ORG)
+      }
+    }
+
+    loadOrgForUser()
+    return () => {
+      cancelled = true
     }
   }, [user])
 
@@ -38,7 +85,6 @@ export function OrgProvider({ children }) {
 
   function updateOrg(patch) {
     setOrg((prev) => (prev ? { ...prev, ...patch, updated_at: new Date().toISOString() } : prev))
-    // Keep allOrgs sync for super-admin
     setAllOrgs((prev) =>
       prev.map((o) => (o.id === org?.id ? { ...o, ...patch } : o))
     )
