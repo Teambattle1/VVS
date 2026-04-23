@@ -21,10 +21,14 @@ function uid(prefix) {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
 }
 
+function genShareToken() {
+  return `share-${Math.random().toString(36).slice(2, 10)}-${Date.now().toString(36)}`
+}
+
 // Seed jobs med et par eksempler der allerede har rum/pakker, så Dashboard
 // viser realistiske priser.
 function seedJobs() {
-  const base = MOCK_JOBS.map((j) => ({ ...j, rooms: [] }))
+  const base = MOCK_JOBS.map((j) => ({ ...j, rooms: [], actions: [] }))
 
   // JOB-2026-0001: badeværelse med 3 pakker
   base[0].rooms = [
@@ -162,12 +166,107 @@ export function JobsProvider({ children }) {
         status: 'draft',
         vat_handling: vatHandling,
         rooms: [],
+        actions: [],
+        share_token: genShareToken(),
         assigned_to: 'Mikkel Montør',
       })
       created = newJob
       return [newJob, ...prev]
     })
     return created
+  }
+
+  // ============================================
+  // Kunde-aktioner: kommentarer, godkend/afvis,
+  // toggle items. Logger ind i job.actions.
+  // ============================================
+  function logAction(jobId, action) {
+    const entry = {
+      id: uid('act'),
+      created_at: new Date().toISOString(),
+      ...action,
+    }
+    setJobs((prev) =>
+      prev.map((j) =>
+        j.id === jobId ? { ...j, actions: [...(j.actions || []), entry] } : j
+      )
+    )
+    return entry
+  }
+
+  function getJobByShareToken(token) {
+    return jobs.find((j) => j.share_token === token)
+  }
+
+  function toggleItemSelected(jobId, roomId, pkgId, itemId, selected, customerMeta = {}) {
+    updatePackageItem(jobId, roomId, pkgId, itemId, { customer_selected: selected })
+    const pkg = getPackage(jobId, roomId, pkgId)
+    const it = pkg?.items.find((i) => i.id === itemId)
+    logAction(jobId, {
+      action_type: 'toggle_item',
+      actor_type: 'customer',
+      actor_name: customerMeta.name || 'Kunde',
+      room_package_id: pkgId,
+      package_item_id: itemId,
+      message: `${selected ? 'Tilvalgte' : 'Fravalgte'} ${it?.name_snapshot || 'vare'}`,
+    })
+  }
+
+  function addComment(jobId, { roomPackageId = null, message, customerName, customerEmail }) {
+    logAction(jobId, {
+      action_type: 'comment',
+      actor_type: 'customer',
+      actor_name: customerName || 'Kunde',
+      customer_email: customerEmail,
+      room_package_id: roomPackageId,
+      message,
+    })
+  }
+
+  function approvePackage(jobId, roomId, pkgId, customerName = 'Kunde') {
+    updatePackage(jobId, roomId, pkgId, { status: 'approved_by_customer' })
+    const pkg = getPackage(jobId, roomId, pkgId)
+    logAction(jobId, {
+      action_type: 'approve',
+      actor_type: 'customer',
+      actor_name: customerName,
+      room_package_id: pkgId,
+      message: `Godkendte ${pkg?.name || 'pakke'}`,
+    })
+  }
+
+  function rejectPackage(jobId, roomId, pkgId, { customerName = 'Kunde', reason = '' } = {}) {
+    updatePackage(jobId, roomId, pkgId, { status: 'rejected_by_customer' })
+    const pkg = getPackage(jobId, roomId, pkgId)
+    logAction(jobId, {
+      action_type: 'reject',
+      actor_type: 'customer',
+      actor_name: customerName,
+      room_package_id: pkgId,
+      message: `Afviste ${pkg?.name || 'pakke'}${reason ? `: ${reason}` : ''}`,
+    })
+  }
+
+  function signOffer(jobId, { customerName, customerEmail }) {
+    updateJob(jobId, { status: 'approved', signed_at: new Date().toISOString(), signed_by: customerName })
+    logAction(jobId, {
+      action_type: 'sign_offer',
+      actor_type: 'customer',
+      actor_name: customerName,
+      customer_email: customerEmail,
+      message: 'Underskrev og godkendte samlet tilbud',
+    })
+  }
+
+  function rejectOffer(jobId, { customerName, customerEmail, reason = '' }) {
+    updateJob(jobId, { status: 'rejected' })
+    logAction(jobId, {
+      action_type: 'reject',
+      actor_type: 'customer',
+      actor_name: customerName,
+      customer_email: customerEmail,
+      message: `Afviste samlet tilbud${reason ? `: ${reason}` : ''}`,
+    })
   }
 
   function updateJob(jobId, patch) {
@@ -429,6 +528,13 @@ export function JobsProvider({ children }) {
       getJob,
       getRoom,
       getPackage,
+      getJobByShareToken,
+      toggleItemSelected,
+      addComment,
+      approvePackage,
+      rejectPackage,
+      signOffer,
+      rejectOffer,
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [jobs, items]

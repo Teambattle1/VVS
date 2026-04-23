@@ -20,6 +20,7 @@ import { jobTotal, roomTotal } from '../lib/pricing.js'
 import PriceSummary from '../components/PriceSummary.jsx'
 import VatToggle from '../components/VatToggle.jsx'
 import AddRoomDialog from '../components/AddRoomDialog.jsx'
+import ActivityFeed from '../components/ActivityFeed.jsx'
 
 export default function JobDetail() {
   const { jobId } = useParams()
@@ -51,7 +52,8 @@ export default function JobDetail() {
   function handleShare() {
     const url = `${window.location.origin}/k/${job.share_token || job.id}`
     navigator.clipboard?.writeText(url)
-    alert(`Kundelink kopieret:\n\n${url}`)
+    alert(`Kundelink kopieret:\n\n${url}\n\nÅbn i en ny fane for at se kundeportalen.`)
+    window.open(url, '_blank')
   }
 
   return (
@@ -185,6 +187,10 @@ export default function JobDetail() {
               Marker som sendt
             </button>
           )}
+        </section>
+
+        <section>
+          <ActivityFeed actions={job.actions || []} />
         </section>
       </main>
 

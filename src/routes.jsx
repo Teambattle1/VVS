@@ -5,6 +5,7 @@ import Dashboard from './pages/Dashboard.jsx'
 import NewJob from './pages/NewJob.jsx'
 import JobDetail from './pages/JobDetail.jsx'
 import RoomEditor from './pages/RoomEditor.jsx'
+import CustomerPortal from './pages/CustomerPortal.jsx'
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth()
@@ -35,6 +36,8 @@ function PublicOnlyRoute({ children }) {
 export default function AppRoutes() {
   return (
     <Routes>
+      <Route path="/k/:token" element={<CustomerPortal />} />
+
       <Route
         path="/login"
         element={
