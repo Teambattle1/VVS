@@ -67,21 +67,16 @@ export default function JobDetail() {
   }
 
   function handleShare() {
-    const url = `${window.location.origin}/k/${job.share_token || job.id}`
-    navigator.clipboard?.writeText(url)
-    // Send invitation til kunden (email + SMS hvis telefon findes)
-    notifyCustomerOfferSent({
-      job,
-      customer: job.customer,
-      org,
-      shareUrl: url,
-    })
     // Marker som sendt hvis stadig i draft
     if (job.status === 'draft') {
       updateJob(job.id, { status: 'sent' })
     }
-    toast.success('Kundelink kopieret + sendt til kunden')
-    window.open(url, '_blank')
+    setShowShare(true)
+  }
+
+  function handlePreview() {
+    const url = `${window.location.origin}/k/${job.share_token || job.id}`
+    window.open(url, '_blank', 'noopener,noreferrer')
   }
 
   async function handleDownloadPDF() {
