@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Stage, Layer, Rect, Line, Image as KonvaImage, Text as KonvaText } from 'react-konva'
+import { Stage, Layer, Rect, Line, Image as KonvaImage, Text as KonvaText, Group } from 'react-konva'
 import clsx from 'clsx'
 import { packageTotal, formatDKK } from '../lib/pricing.js'
 import LucideByName from './LucideByName.jsx'
@@ -89,17 +89,20 @@ export default function FloorplanCanvas({
     return lines
   }, [innerW, innerH])
 
+  // COVER-skalering: billedet fylder hele rum-arealet (beskaerer overskud)
   const bgDims = useMemo(() => {
     if (!bgImage) return null
     const imgRatio = bgImage.width / bgImage.height
     const boxRatio = innerW / innerH
     let w, h
     if (imgRatio > boxRatio) {
-      w = innerW
-      h = innerW / imgRatio
-    } else {
+      // Billede relativt bredere -> match hoejde, bredde overflow'er
       h = innerH
       w = innerH * imgRatio
+    } else {
+      // Billede relativt hoejere -> match bredde, hoejde overflow'er
+      w = innerW
+      h = innerW / imgRatio
     }
     return {
       x: padding + (innerW - w) / 2,
@@ -219,14 +222,21 @@ export default function FloorplanCanvas({
         <Layer listening={false}>
           <Rect x={padding} y={padding} width={innerW} height={innerH} fill="#ffffff" cornerRadius={6} />
           {bgImage && bgDims && (
-            <KonvaImage
-              image={bgImage}
-              x={bgDims.x}
-              y={bgDims.y}
-              width={bgDims.width}
-              height={bgDims.height}
-              opacity={0.9}
-            />
+            <Group
+              clipX={padding}
+              clipY={padding}
+              clipWidth={innerW}
+              clipHeight={innerH}
+            >
+              <KonvaImage
+                image={bgImage}
+                x={bgDims.x}
+                y={bgDims.y}
+                width={bgDims.width}
+                height={bgDims.height}
+                opacity={0.95}
+              />
+            </Group>
           )}
           {showGrid && gridLines.map((l) => <Line key={l.key} points={l.points} stroke="#e2e8f0" strokeWidth={1} />)}
           {showRectangleBox && (
