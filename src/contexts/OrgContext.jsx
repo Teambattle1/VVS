@@ -41,9 +41,23 @@ export function OrgProvider({ children }) {
   const [homeOrgId, setHomeOrgId] = useState(null) // brugerens egen org fra vvs_users
   const [userRole, setUserRole] = useState(null)
   // Alle brugere faar default-kode '1234' medmindre anden angivet
-  const [team, setTeam] = useState(() =>
-    INITIAL_TEAM.map((u) => ({ ...u, password: u.password || '1234' }))
-  )
+  const [team, setTeam] = useState(() => {
+    try {
+      const stored = localStorage.getItem('vvs.demoTeam')
+      if (stored) {
+        const parsed = JSON.parse(stored)
+        if (Array.isArray(parsed) && parsed.length) return parsed
+      }
+    } catch { /* ignore */ }
+    return INITIAL_TEAM.map((u) => ({ ...u, password: u.password || '1234' }))
+  })
+
+  // Persister team-aendringer saa AuthContext kan fallback-validere logins
+  useEffect(() => {
+    try {
+      localStorage.setItem('vvs.demoTeam', JSON.stringify(team))
+    } catch { /* ignore */ }
+  }, [team])
   const [allOrgs, setAllOrgs] = useState(hasSupabase ? [] : INITIAL_ORGS)
 
   function reportDbError(where, err) {

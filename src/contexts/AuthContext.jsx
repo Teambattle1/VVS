@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 import { hasSupabase, supabase } from '../lib/supabase.js'
 import { logAuthEvent } from '../lib/authEvents.js'
+import { INITIAL_TEAM } from '../lib/mockUsers.js'
 
 const AuthContext = createContext(null)
 
@@ -11,6 +12,28 @@ const MOCK_USER = {
   email: 'demo@vvs-kbh.dk',
   name: 'Mikkel Montør',
   role: 'montor',
+}
+
+// Demo-team login: matcher CREW-brugere (INITIAL_TEAM + evt. tilfoejede) mod default-koden '1234'.
+// Benyttes som fallback hvis Supabase Auth ikke kender brugeren.
+function tryDemoTeamLogin(email, password) {
+  const e = email.trim().toLowerCase()
+  // Dynamisk team-list fra localStorage (tilfoejede brugere) + INITIAL_TEAM fallback
+  let list = INITIAL_TEAM
+  try {
+    const stored = localStorage.getItem('vvs.demoTeam')
+    if (stored) list = JSON.parse(stored)
+  } catch { /* ignore */ }
+  const match = list.find((u) => u.email?.toLowerCase() === e && u.active !== false)
+  if (!match) return null
+  const expected = match.password || '1234'
+  if (password !== expected) return null
+  return {
+    id: match.id,
+    email: match.email,
+    name: match.name,
+    role: match.role || 'montor',
+  }
 }
 
 export function AuthProvider({ children }) {
@@ -76,7 +99,14 @@ export function AuthProvider({ children }) {
     if (hasSupabase) {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password })
       if (error) {
-        // Dansk fejlbesked
+        // Fallback: demo-team (CREW i Settings) bruger default 1234 og findes ikke i Supabase Auth
+        const demoUser = tryDemoTeamLogin(email, password)
+        if (demoUser) {
+          setUser(demoUser)
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(demoUser))
+          logAuthEvent({ type: 'login', userId: demoUser.id, userEmail: demoUser.email, userName: demoUser.name })
+          return demoUser
+        }
         if (error.message.toLowerCase().includes('invalid')) {
           throw new Error('Forkert email eller adgangskode')
         }
