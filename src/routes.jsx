@@ -6,6 +6,13 @@ import NewJob from './pages/NewJob.jsx'
 import JobDetail from './pages/JobDetail.jsx'
 import RoomEditor from './pages/RoomEditor.jsx'
 import CustomerPortal from './pages/CustomerPortal.jsx'
+import Onboarding from './pages/Onboarding.jsx'
+import AdminLayout from './components/AdminLayout.jsx'
+import AdminPackages from './pages/admin/Packages.jsx'
+import AdminItems from './pages/admin/Items.jsx'
+import AdminUsers from './pages/admin/Users.jsx'
+import AdminSettings from './pages/admin/Settings.jsx'
+import SuperAdminOrganizations from './pages/superadmin/Organizations.jsx'
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth()
@@ -78,6 +85,40 @@ export default function AppRoutes() {
           </ProtectedRoute>
         }
       />
+
+      <Route
+        path="/admin"
+        element={
+          <ProtectedRoute>
+            <AdminLayout />
+          </ProtectedRoute>
+        }
+      >
+        <Route index element={<Navigate to="/admin/packages" replace />} />
+        <Route path="packages" element={<AdminPackages />} />
+        <Route path="items" element={<AdminItems />} />
+        <Route path="users" element={<AdminUsers />} />
+        <Route path="settings" element={<AdminSettings />} />
+      </Route>
+
+      <Route
+        path="/super"
+        element={
+          <ProtectedRoute>
+            <SuperAdminOrganizations />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/onboarding"
+        element={
+          <ProtectedRoute>
+            <Onboarding />
+          </ProtectedRoute>
+        }
+      />
+
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   )

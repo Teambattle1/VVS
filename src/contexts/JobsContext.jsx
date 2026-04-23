@@ -143,6 +143,9 @@ function seedJobs() {
 export function JobsProvider({ children }) {
   const [jobs, setJobs] = useState(() => seedJobs())
   const [items, setItems] = useState(INITIAL_ITEMS)
+  const [templates, setTemplates] = useState(() =>
+    PACKAGE_TEMPLATES.map((t) => ({ ...t, active: true }))
+  )
 
   const recomputeJob = useCallback((job) => ({
     ...job,
@@ -600,6 +603,66 @@ export function JobsProvider({ children }) {
     return newItem
   }
 
+  function updateItem(itemId, patch) {
+    setItems((prev) => prev.map((it) => (it.id === itemId ? { ...it, ...patch } : it)))
+  }
+
+  function deleteItem(itemId) {
+    setItems((prev) => prev.filter((it) => it.id !== itemId))
+  }
+
+  function importItemsCSV(rows) {
+    // rows: [{ name, sku, category, unit, sales_price }]
+    const created = rows
+      .filter((r) => r.name?.trim())
+      .map((r) => ({
+        id: uid('i'),
+        sku: r.sku?.trim() || null,
+        name: r.name.trim(),
+        category: (r.category || 'andet').trim(),
+        unit: (r.unit || 'stk').trim(),
+        sales_price: Number(r.sales_price) || 0,
+        supplier: 'manual',
+      }))
+    setItems((prev) => [...created, ...prev])
+    return created
+  }
+
+  // ============================================
+  // Pakke-skabeloner CRUD (org's kopier af globale)
+  // ============================================
+  function createTemplate(data) {
+    const tpl = {
+      id: uid('t'),
+      name: data.name.trim(),
+      category: data.category || 'misc',
+      lucide_icon: data.lucide_icon || 'Package',
+      pricing_model: data.pricing_model || 'fixed',
+      base_price: Number(data.base_price) || 0,
+      base_hours: Number(data.base_hours) || 0,
+      hourly_rate: data.hourly_rate ? Number(data.hourly_rate) : null,
+      active: true,
+    }
+    setTemplates((prev) => [tpl, ...prev])
+    return tpl
+  }
+
+  function updateTemplate(templateId, patch) {
+    setTemplates((prev) =>
+      prev.map((t) => (t.id === templateId ? { ...t, ...patch } : t))
+    )
+  }
+
+  function deleteTemplate(templateId) {
+    setTemplates((prev) => prev.filter((t) => t.id !== templateId))
+  }
+
+  function toggleTemplateActive(templateId) {
+    setTemplates((prev) =>
+      prev.map((t) => (t.id === templateId ? { ...t, active: !t.active } : t))
+    )
+  }
+
   function getJob(jobId) {
     return jobs.find((j) => j.id === jobId)
   }
@@ -632,6 +695,14 @@ export function JobsProvider({ children }) {
       removePackageItem,
       searchItems,
       createItem,
+      updateItem,
+      deleteItem,
+      importItemsCSV,
+      templates,
+      createTemplate,
+      updateTemplate,
+      deleteTemplate,
+      toggleTemplateActive,
       getJob,
       getRoom,
       getPackage,
@@ -644,7 +715,7 @@ export function JobsProvider({ children }) {
       rejectOffer,
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [jobs, items]
+    [jobs, items, templates]
   )
 
   return <JobsContext.Provider value={value}>{children}</JobsContext.Provider>

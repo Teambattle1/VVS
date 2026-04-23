@@ -11,9 +11,11 @@ import {
   Share2,
   Trash2,
   Home,
+  FileDown,
 } from 'lucide-react'
 import clsx from 'clsx'
 import { useJobs } from '../contexts/JobsContext.jsx'
+import { useOrg } from '../contexts/OrgContext.jsx'
 import { STATUS_LABELS } from '../lib/mockJobs.js'
 import { ROOM_TYPES } from '../lib/mockTemplates.js'
 import { jobTotal, roomTotal } from '../lib/pricing.js'
@@ -21,12 +23,15 @@ import PriceSummary from '../components/PriceSummary.jsx'
 import VatToggle from '../components/VatToggle.jsx'
 import AddRoomDialog from '../components/AddRoomDialog.jsx'
 import ActivityFeed from '../components/ActivityFeed.jsx'
+import { downloadOfferPDF } from '../components/OfferPDF.jsx'
 
 export default function JobDetail() {
   const { jobId } = useParams()
   const navigate = useNavigate()
   const { getJob, updateJob, addRoom, deleteRoom } = useJobs()
+  const { org } = useOrg()
   const [showAddRoom, setShowAddRoom] = useState(false)
+  const [exporting, setExporting] = useState(false)
 
   const job = getJob(jobId)
   if (!job) {
@@ -56,6 +61,17 @@ export default function JobDetail() {
     window.open(url, '_blank')
   }
 
+  async function handleDownloadPDF() {
+    setExporting(true)
+    try {
+      await downloadOfferPDF(job, org)
+    } catch (err) {
+      alert('Kunne ikke generere PDF: ' + err.message)
+    } finally {
+      setExporting(false)
+    }
+  }
+
   return (
     <div className="min-h-screen pb-24 md:pb-12 bg-slate-50">
       <header className={clsx('sticky top-0 z-30 bg-white border-b-2', status.border)}>
@@ -75,6 +91,15 @@ export default function JobDetail() {
             </div>
             <h1 className="text-sm md:text-base font-bold text-slate-900 truncate">{job.title}</h1>
           </div>
+          <button
+            type="button"
+            onClick={handleDownloadPDF}
+            disabled={exporting}
+            className="hidden md:inline-flex btn-secondary"
+          >
+            <FileDown className="w-5 h-5 text-slate-700" strokeWidth={2} />
+            {exporting ? 'Genererer…' : 'PDF'}
+          </button>
           <button
             type="button"
             onClick={handleShare}
@@ -169,6 +194,15 @@ export default function JobDetail() {
         </section>
 
         <section className="flex flex-col md:flex-row gap-2 pt-2">
+          <button
+            type="button"
+            onClick={handleDownloadPDF}
+            disabled={exporting}
+            className="btn-secondary flex-1 md:hidden"
+          >
+            <FileDown className="w-5 h-5 text-slate-700" strokeWidth={2} />
+            {exporting ? 'Genererer…' : 'Download PDF'}
+          </button>
           <button
             type="button"
             onClick={handleShare}

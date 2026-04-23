@@ -1,0 +1,70 @@
+// Mock organisationer til super-admin panelet
+
+export const INITIAL_ORGS = [
+  {
+    id: 'org-mock-1',
+    name: 'VVS København ApS',
+    slug: 'vvs-kbh',
+    cvr: '12345678',
+    contact_email: 'kontakt@vvs-kbh.dk',
+    contact_phone: '+45 70 20 30 40',
+    address: 'Vandmålervej 12, 2100 København Ø',
+    primary_color: '#0EA5E9',
+    accent_color: '#F59E0B',
+    logo_url: null,
+    default_hourly_rate: 695,
+    default_markup_percent: 25,
+    subscription_tier: 'pro',
+    subscription_status: 'active',
+    created_at: '2025-09-14T00:00:00Z',
+    users_count: 4,
+  },
+  {
+    id: 'org-mock-2',
+    name: 'Aarhus VVS & Varme',
+    slug: 'aarhus-vvs',
+    cvr: '87654321',
+    contact_email: 'info@aarhusvvs.dk',
+    contact_phone: '+45 86 12 34 56',
+    address: 'Silkeborgvej 200, 8230 Åbyhøj',
+    primary_color: '#DC2626',
+    accent_color: '#FBBF24',
+    logo_url: null,
+    default_hourly_rate: 650,
+    default_markup_percent: 20,
+    subscription_tier: 'basic',
+    subscription_status: 'active',
+    created_at: '2026-01-08T00:00:00Z',
+    users_count: 2,
+  },
+  {
+    id: 'org-mock-3',
+    name: 'Odense Rørteknik ApS',
+    slug: 'odense-ror',
+    cvr: '11223344',
+    contact_email: 'kontakt@odenseror.dk',
+    contact_phone: '+45 66 11 22 33',
+    address: 'Nyborgvej 50, 5000 Odense C',
+    primary_color: '#059669',
+    accent_color: '#F97316',
+    logo_url: null,
+    default_hourly_rate: 625,
+    default_markup_percent: 22,
+    subscription_tier: 'trial',
+    subscription_status: 'active',
+    created_at: '2026-04-01T00:00:00Z',
+    users_count: 1,
+  },
+]
+
+export const SUBSCRIPTION_TIERS = [
+  { value: 'trial', label: 'Trial', color: 'bg-slate-100 text-slate-700' },
+  { value: 'basic', label: 'Basic', color: 'bg-sky-100 text-sky-800' },
+  { value: 'pro', label: 'Pro', color: 'bg-violet-100 text-violet-800' },
+]
+
+export const SUBSCRIPTION_STATUSES = [
+  { value: 'active', label: 'Aktiv', color: 'bg-emerald-100 text-emerald-800' },
+  { value: 'paused', label: 'Pauset', color: 'bg-amber-100 text-amber-800' },
+  { value: 'cancelled', label: 'Opsagt', color: 'bg-rose-100 text-rose-800' },
+]

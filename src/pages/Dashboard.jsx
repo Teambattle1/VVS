@@ -12,6 +12,8 @@ import {
   UserCircle,
   ChevronRight,
   Building2,
+  Settings as SettingsIcon,
+  ShieldCheck,
 } from 'lucide-react'
 import clsx from 'clsx'
 import { useAuth } from '../contexts/AuthContext.jsx'
@@ -63,6 +65,22 @@ export default function Dashboard() {
             <div className="text-xs text-slate-500 truncate">{org?.name || 'VVS Firma'}</div>
             <div className="text-sm font-bold text-slate-900 truncate">Mine sager</div>
           </div>
+          <Link
+            to="/super"
+            className="hidden md:inline-flex items-center justify-center w-10 h-10 rounded-2xl text-slate-500 hover:bg-slate-100"
+            aria-label="Super-admin"
+            title="Super-admin"
+          >
+            <ShieldCheck className="w-5 h-5" strokeWidth={2} />
+          </Link>
+          <Link
+            to="/admin"
+            className="inline-flex items-center justify-center w-10 h-10 rounded-2xl text-slate-500 hover:bg-slate-100"
+            aria-label="Admin"
+            title="Administration"
+          >
+            <SettingsIcon className="w-5 h-5" strokeWidth={2} />
+          </Link>
           <button
             type="button"
             onClick={signOut}
