@@ -18,10 +18,10 @@ import OrgLogo from './OrgLogo.jsx'
 const NAV = [
   { to: '/admin/packages', label: 'Pakke-skabeloner', icon: Package },
   { to: '/admin/items', label: 'Varedatabase', icon: Boxes },
-  { to: '/admin/users', label: 'Team', icon: Users2 },
   { to: '/admin/activity', label: 'Aktivitetslog', icon: Activity },
   { to: '/admin/integrations', label: 'Integrationer', icon: Plug },
   { to: '/admin/settings', label: 'Indstillinger', icon: SettingsIcon },
+  { to: '/admin/users', label: 'Team', icon: Users2 },
 ]
 
 function getInitials(user) {
