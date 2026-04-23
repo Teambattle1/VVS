@@ -13,6 +13,7 @@ import {
   ShieldCheck,
 } from 'lucide-react'
 import clsx from 'clsx'
+import { LogIn } from 'lucide-react'
 import { useOrg } from '../../contexts/OrgContext.jsx'
 import { useAuth } from '../../contexts/AuthContext.jsx'
 import { SUBSCRIPTION_TIERS, SUBSCRIPTION_STATUSES } from '../../lib/mockOrgs.js'
@@ -22,7 +23,7 @@ import BrandIcon from '../../components/BrandIcon.jsx'
 
 export default function SuperAdminOrganizations() {
   const navigate = useNavigate()
-  const { allOrgs, addOrg } = useOrg()
+  const { allOrgs, addOrg, switchActiveOrg } = useOrg()
   const { signOut } = useAuth()
   const toast = useToast()
   const [query, setQuery] = useState('')
@@ -105,7 +106,14 @@ export default function SuperAdminOrganizations() {
 
         <ul className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {filtered.map((o) => (
-            <OrgCard key={o.id} org={o} />
+            <OrgCard
+              key={o.id}
+              org={o}
+              onLogin={async () => {
+                await switchActiveOrg(o.id)
+                navigate('/')
+              }}
+            />
           ))}
         </ul>
       </main>
@@ -142,7 +150,7 @@ function StatCard({ label, value }) {
   )
 }
 
-function OrgCard({ org }) {
+function OrgCard({ org, onLogin }) {
   const tier = SUBSCRIPTION_TIERS.find((t) => t.value === org.subscription_tier)
   const status = SUBSCRIPTION_STATUSES.find((s) => s.value === org.subscription_status)
   return (
@@ -183,14 +191,25 @@ function OrgCard({ org }) {
           </div>
         )}
       </div>
-      <button
-        type="button"
-        onClick={() => alert(`Rediger "${org.name}" - kommer i næste iteration`)}
-        className="w-9 h-9 rounded-xl text-slate-500 hover:bg-slate-100 flex items-center justify-center flex-shrink-0"
-        aria-label="Rediger"
-      >
-        <Edit2 className="w-4 h-4" strokeWidth={2} />
-      </button>
+      <div className="flex flex-col gap-1 flex-shrink-0">
+        <button
+          type="button"
+          onClick={onLogin}
+          className="btn-primary text-xs px-3 py-1.5 min-h-[32px]"
+          title={`Log ind som super-admin i ${org.name}`}
+        >
+          <LogIn className="w-3.5 h-3.5 text-white" strokeWidth={2.5} />
+          Log ind
+        </button>
+        <button
+          type="button"
+          onClick={() => alert(`Rediger "${org.name}" - kommer i næste iteration`)}
+          className="w-full h-7 rounded-xl text-slate-500 hover:bg-slate-100 flex items-center justify-center flex-shrink-0"
+          aria-label="Rediger"
+        >
+          <Edit2 className="w-4 h-4" strokeWidth={2} />
+        </button>
+      </div>
     </li>
   )
 }

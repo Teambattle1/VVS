@@ -13,10 +13,33 @@ function uid(prefix) {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
 }
 
+const ACTIVE_ORG_STORAGE = 'vvs.activeOrgId'
+
+function getStoredActiveOrg(userId) {
+  try {
+    const map = JSON.parse(localStorage.getItem(ACTIVE_ORG_STORAGE) || '{}')
+    return map[userId] || null
+  } catch {
+    return null
+  }
+}
+function setStoredActiveOrg(userId, orgId) {
+  try {
+    const map = JSON.parse(localStorage.getItem(ACTIVE_ORG_STORAGE) || '{}')
+    if (orgId) map[userId] = orgId
+    else delete map[userId]
+    localStorage.setItem(ACTIVE_ORG_STORAGE, JSON.stringify(map))
+  } catch {
+    /* ignore */
+  }
+}
+
 export function OrgProvider({ children }) {
   const { user } = useAuth()
   const toast = useToast()
-  const [org, setOrg] = useState(null)
+  const [org, setOrg] = useState(null) // aktive org (=homeOrg for ikke-super-admins)
+  const [homeOrgId, setHomeOrgId] = useState(null) // brugerens egen org fra vvs_users
+  const [userRole, setUserRole] = useState(null)
   const [team, setTeam] = useState(INITIAL_TEAM)
   const [allOrgs, setAllOrgs] = useState(hasSupabase ? [] : INITIAL_ORGS)
 
@@ -32,11 +55,12 @@ export function OrgProvider({ children }) {
     async function loadOrgForUser() {
       if (!user) {
         setOrg(null)
+        setHomeOrgId(null)
+        setUserRole(null)
         return
       }
 
       if (hasSupabase) {
-        // Slå vvs_users op for at finde organization_id for denne auth-user
         try {
           const { data: profile, error: profileError } = await supabase
             .from('vvs_users')
@@ -48,10 +72,20 @@ export function OrgProvider({ children }) {
           if (profileError) throw profileError
 
           if (profile?.organization_id) {
+            if (!cancelled) {
+              setHomeOrgId(profile.organization_id)
+              setUserRole(profile.role)
+            }
+
+            // Super-admin: brug gemt activeOrgId hvis den findes, ellers home
+            const isSuperAdmin = profile.role === 'super_admin'
+            const storedActive = isSuperAdmin ? getStoredActiveOrg(user.id) : null
+            const targetOrgId = storedActive || profile.organization_id
+
             const { data: orgRow, error: orgError } = await supabase
               .from('vvs_organizations')
               .select('*')
-              .eq('id', profile.organization_id)
+              .eq('id', targetOrgId)
               .maybeSingle()
 
             if (orgError) throw orgError
@@ -61,8 +95,6 @@ export function OrgProvider({ children }) {
             }
           }
 
-          // Ingen vvs_users-record endnu (fx ny bruger som ikke er linket til org)
-          // Fall back til mock så UI ikke er tomt
           if (!cancelled) setOrg(MOCK_ORG)
         } catch (err) {
           // eslint-disable-next-line no-console
@@ -71,6 +103,8 @@ export function OrgProvider({ children }) {
         }
       } else {
         setOrg(MOCK_ORG)
+        setHomeOrgId(MOCK_ORG.id)
+        setUserRole('super_admin') // mock-mode: super-admin saa features kan testes
       }
     }
 
@@ -79,6 +113,41 @@ export function OrgProvider({ children }) {
       cancelled = true
     }
   }, [user])
+
+  async function switchActiveOrg(orgId) {
+    if (!user) return
+    if (userRole !== 'super_admin') {
+      toast?.error?.('Kun super-admin kan skifte organisation')
+      return
+    }
+    setStoredActiveOrg(user.id, orgId === homeOrgId ? null : orgId)
+
+    if (hasSupabase) {
+      try {
+        const { data } = await supabase
+          .from('vvs_organizations')
+          .select('*')
+          .eq('id', orgId)
+          .maybeSingle()
+        if (data) {
+          setOrg(data)
+          toast?.success?.(`Skiftet til ${data.name}`)
+        }
+      } catch (err) {
+        reportDbError('Kunne ikke skifte organisation', err)
+      }
+    } else {
+      const next = allOrgs.find((o) => o.id === orgId)
+      if (next) {
+        setOrg(next)
+        toast?.success?.(`Skiftet til ${next.name}`)
+      }
+    }
+  }
+
+  function resetToHomeOrg() {
+    if (homeOrgId) switchActiveOrg(homeOrgId)
+  }
 
   useEffect(() => {
     const root = document.documentElement
@@ -215,11 +284,20 @@ export function OrgProvider({ children }) {
     }
   }, [user])
 
+  const isSuperAdmin = userRole === 'super_admin'
+  const isSwitched = homeOrgId && org?.id && org.id !== homeOrgId
+
   const value = useMemo(
     () => ({
       org,
       setOrg,
       updateOrg,
+      userRole,
+      isSuperAdmin,
+      homeOrgId,
+      isSwitched,
+      switchActiveOrg,
+      resetToHomeOrg,
       team,
       addTeamMember,
       updateTeamMember,
@@ -229,7 +307,7 @@ export function OrgProvider({ children }) {
       updateOrgById,
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [org, team, allOrgs]
+    [org, team, allOrgs, userRole, homeOrgId, isSuperAdmin, isSwitched]
   )
 
   return <OrgContext.Provider value={value}>{children}</OrgContext.Provider>

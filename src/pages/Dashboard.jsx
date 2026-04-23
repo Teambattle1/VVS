@@ -26,6 +26,7 @@ import OrgLogo from '../components/OrgLogo.jsx'
 import MontorTour from '../components/MontorTour.jsx'
 import ThemeToggle from '../components/ThemeToggle.jsx'
 import VersionBadge from '../components/VersionBadge.jsx'
+import OrgSwitcher from '../components/OrgSwitcher.jsx'
 
 const STATUS_FILTERS = [
   { value: 'all', label: 'Alle', activeClass: 'bg-slate-900 text-white border-slate-900' },
@@ -69,6 +70,7 @@ export default function Dashboard() {
             <div className="text-xs text-slate-500 truncate">{org?.name || 'VVS Firma'}</div>
             <div className="text-sm font-bold text-slate-900 truncate">Mine sager</div>
           </div>
+          <OrgSwitcher className="mr-1 hidden sm:block" />
 
           <div className="hidden sm:flex items-center gap-2 px-2 py-1 rounded-2xl hover:bg-slate-50">
             <div

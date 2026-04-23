@@ -7,6 +7,7 @@ import { hasSupabase } from '../lib/supabase.js'
 import * as repo from '../lib/jobsRepo.js'
 import { useAuth } from './AuthContext.jsx'
 import { useToast } from './ToastContext.jsx'
+import { useOrg } from './OrgContext.jsx'
 
 const JobsContext = createContext(null)
 
@@ -91,6 +92,7 @@ function seedJobs() {
 
 export function JobsProvider({ children }) {
   const { user } = useAuth()
+  const { org } = useOrg()
   const toast = useToast()
   const [jobs, setJobs] = useState(() => (hasSupabase ? [] : seedJobs()))
   const [items, setItems] = useState(hasSupabase ? [] : INITIAL_ITEMS)
@@ -99,6 +101,11 @@ export function JobsProvider({ children }) {
   )
   const [orgId, setOrgId] = useState(null)
   const [dbUserId, setDbUserId] = useState(null)
+
+  // Synk orgId med den aktive org fra OrgContext (saa super-admin kan skifte)
+  useEffect(() => {
+    if (org?.id) setOrgId(org.id)
+  }, [org?.id])
   const [dbLoading, setDbLoading] = useState(false)
   const supabaseModeRef = useRef(hasSupabase)
 
@@ -121,7 +128,6 @@ export function JobsProvider({ children }) {
   // ============================================
   useEffect(() => {
     if (!hasSupabase || !user) {
-      setOrgId(null)
       setDbUserId(null)
       return
     }
@@ -131,12 +137,11 @@ export function JobsProvider({ children }) {
         const { supabase } = await import('../lib/supabase.js')
         const { data } = await supabase
           .from('vvs_users')
-          .select('id, organization_id')
+          .select('id')
           .eq('user_id', user.id)
           .eq('active', true)
           .maybeSingle()
         if (!cancelled && data) {
-          setOrgId(data.organization_id)
           setDbUserId(data.id)
         }
       } catch (err) {
