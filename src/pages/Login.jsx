@@ -114,9 +114,6 @@ export default function Login() {
           </div>
         </form>
 
-        <div className="mt-6 rounded-2xl bg-white/70 border border-slate-200 px-4 py-3 text-xs text-slate-500 text-center">
-          Mock-login: Udfyld vilkårlig email + adgangskode og tryk <strong className="text-slate-700">Log ind</strong>.
-        </div>
       </div>
     </div>
   )

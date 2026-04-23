@@ -1,4 +1,4 @@
-export const VERSION = '1.0.0'
+export const VERSION = '1.0.9'
 
 // Sammenlign versioner (x.y.z format). Returns -1/0/1.
 export function compareVersions(a, b) {
