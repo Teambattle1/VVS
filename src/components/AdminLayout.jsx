@@ -23,7 +23,6 @@ const NAV = [
   { to: '/admin/activity', label: 'Aktivitetslog', icon: Activity },
   { to: '/admin/integrations', label: 'Integrationer', icon: Plug },
   { to: '/admin/settings', label: 'Indstillinger', icon: SettingsIcon },
-  { to: '/admin/users', label: 'Team', icon: Users2 },
 ]
 
 function getInitials(user) {
