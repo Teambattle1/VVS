@@ -83,11 +83,27 @@ export function OrgProvider({ children }) {
     }
   }, [org])
 
-  function updateOrg(patch) {
+  async function updateOrg(patch) {
+    const currentId = org?.id
+    // Optimistic local update
     setOrg((prev) => (prev ? { ...prev, ...patch, updated_at: new Date().toISOString() } : prev))
     setAllOrgs((prev) =>
-      prev.map((o) => (o.id === org?.id ? { ...o, ...patch } : o))
+      prev.map((o) => (o.id === currentId ? { ...o, ...patch } : o))
     )
+
+    // Persist til Supabase (kun rigtige UUID'er — ikke mock 'org-mock-*')
+    if (hasSupabase && currentId && !currentId.startsWith('org-mock')) {
+      try {
+        const { error } = await supabase
+          .from('vvs_organizations')
+          .update(patch)
+          .eq('id', currentId)
+        if (error) throw error
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.warn('[OrgContext] updateOrg DB-write fejlede:', err.message)
+      }
+    }
   }
 
   function addTeamMember({ name, email, phone, role }) {

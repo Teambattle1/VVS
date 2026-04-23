@@ -1,5 +1,5 @@
-import { useRef, useState } from 'react'
-import { ImagePlus, Check, X, Palette, Building2 } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { ImagePlus, Check, X, Palette, Building2, Loader2 } from 'lucide-react'
 import clsx from 'clsx'
 import { useOrg } from '../../contexts/OrgContext.jsx'
 
@@ -8,66 +8,59 @@ const ACCENT_COLORS = ['#F59E0B', '#EC4899', '#06B6D4', '#84CC16', '#6366F1', '#
 
 export default function AdminSettings() {
   const { org, updateOrg } = useOrg()
-  const [saved, setSaved] = useState(false)
+  const [status, setStatus] = useState('idle') // idle | saving | saved
   const fileRef = useRef(null)
+  const savedTimerRef = useRef(null)
 
   if (!org) return null
+
+  async function handleField(field, value) {
+    setStatus('saving')
+    clearTimeout(savedTimerRef.current)
+    try {
+      await updateOrg({ [field]: value })
+      setStatus('saved')
+      savedTimerRef.current = setTimeout(() => setStatus('idle'), 2500)
+    } catch {
+      setStatus('idle')
+    }
+  }
 
   function handleLogoUpload(e) {
     const file = e.target.files?.[0]
     if (!file) return
     const reader = new FileReader()
-    reader.onload = () => {
-      updateOrg({ logo_url: reader.result })
-      flashSaved()
-    }
+    reader.onload = () => handleField('logo_url', reader.result)
     reader.readAsDataURL(file)
     e.target.value = ''
   }
 
-  function flashSaved() {
-    setSaved(true)
-    setTimeout(() => setSaved(false), 2000)
-  }
-
-  function handleField(field, value) {
-    updateOrg({ [field]: value })
-    flashSaved()
-  }
-
   return (
     <div className="space-y-5">
-      <header className="flex items-center justify-between gap-3">
+      <header className="flex items-center justify-between gap-3 flex-wrap">
         <div>
           <h1 className="text-xl font-bold text-slate-900">Indstillinger</h1>
           <p className="text-sm text-slate-500">
-            Organisation, branding og standard-priser. Gemmes automatisk.
+            Auto-gemmes til Supabase · farver/numre straks, tekst når du klikker væk
           </p>
         </div>
-        {saved && (
-          <span className="chip bg-emerald-100 text-emerald-800 animate-pulse">
-            <Check className="w-3.5 h-3.5" strokeWidth={2.5} />
-            Gemt
-          </span>
-        )}
+        <SaveIndicator status={status} />
       </header>
 
       <Section title="Organisation" icon={Building2}>
         <Field label="Navn">
-          <input
-            type="text"
-            className="input"
+          <DebouncedInput
             value={org.name || ''}
-            onChange={(e) => handleField('name', e.target.value)}
+            onSave={(v) => handleField('name', v)}
+            type="text"
           />
         </Field>
         <div className="grid grid-cols-2 gap-3">
           <Field label="CVR">
-            <input
-              type="text"
-              className="input"
+            <DebouncedInput
               value={org.cvr || ''}
-              onChange={(e) => handleField('cvr', e.target.value)}
+              onSave={(v) => handleField('cvr', v)}
+              type="text"
             />
           </Field>
           <Field label="Abonnement">
@@ -80,28 +73,25 @@ export default function AdminSettings() {
           </Field>
         </div>
         <Field label="Adresse">
-          <input
-            type="text"
-            className="input"
+          <DebouncedInput
             value={org.address || ''}
-            onChange={(e) => handleField('address', e.target.value)}
+            onSave={(v) => handleField('address', v)}
+            type="text"
           />
         </Field>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <Field label="Kontakt-email">
-            <input
-              type="email"
-              className="input"
+            <DebouncedInput
               value={org.contact_email || ''}
-              onChange={(e) => handleField('contact_email', e.target.value)}
+              onSave={(v) => handleField('contact_email', v)}
+              type="email"
             />
           </Field>
           <Field label="Kontakt-telefon">
-            <input
-              type="tel"
-              className="input"
+            <DebouncedInput
               value={org.contact_phone || ''}
-              onChange={(e) => handleField('contact_phone', e.target.value)}
+              onSave={(v) => handleField('contact_phone', v)}
+              type="tel"
             />
           </Field>
         </div>
@@ -160,29 +150,91 @@ export default function AdminSettings() {
       <Section title="Standard-priser">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <Field label="Timeløn (kr, ekskl. moms)">
-            <input
+            <DebouncedInput
               type="number"
               min="0"
-              className="input"
               value={org.default_hourly_rate || 0}
-              onChange={(e) => handleField('default_hourly_rate', Number(e.target.value) || 0)}
+              onSave={(v) => handleField('default_hourly_rate', Number(v) || 0)}
             />
           </Field>
           <Field label="Standard markup på varer (%)">
-            <input
+            <DebouncedInput
               type="number"
               min="0"
               max="200"
-              className="input"
               value={org.default_markup_percent || 0}
-              onChange={(e) =>
-                handleField('default_markup_percent', Number(e.target.value) || 0)
-              }
+              onSave={(v) => handleField('default_markup_percent', Number(v) || 0)}
             />
           </Field>
         </div>
       </Section>
     </div>
+  )
+}
+
+function SaveIndicator({ status }) {
+  if (status === 'saving') {
+    return (
+      <span className="chip bg-sky-100 text-sky-800">
+        <Loader2 className="w-3.5 h-3.5 animate-spin" strokeWidth={2.5} />
+        Gemmer…
+      </span>
+    )
+  }
+  if (status === 'saved') {
+    return (
+      <span className="chip bg-emerald-100 text-emerald-800">
+        <Check className="w-3.5 h-3.5" strokeWidth={2.5} />
+        Gemt
+      </span>
+    )
+  }
+  return (
+    <span className="chip bg-slate-100 text-slate-500">
+      Auto-save aktiv
+    </span>
+  )
+}
+
+// Debounced input: opdaterer lokal state straks, sender kun til onSave
+// 500ms efter sidste keystroke ELLER ved blur.
+function DebouncedInput({ value, onSave, delay = 500, ...props }) {
+  const [local, setLocal] = useState(value ?? '')
+  const timerRef = useRef(null)
+  const dirtyRef = useRef(false)
+
+  // Hvis prop-værdi ændrer sig udefra og brugeren ikke er i gang med at skrive
+  useEffect(() => {
+    if (!dirtyRef.current) setLocal(value ?? '')
+  }, [value])
+
+  function fire(v) {
+    if (v === (value ?? '')) return
+    onSave?.(v)
+    dirtyRef.current = false
+  }
+
+  function handleChange(e) {
+    const v = e.target.value
+    dirtyRef.current = true
+    setLocal(v)
+    clearTimeout(timerRef.current)
+    timerRef.current = setTimeout(() => fire(v), delay)
+  }
+
+  function handleBlur() {
+    clearTimeout(timerRef.current)
+    fire(local)
+  }
+
+  return (
+    <input
+      {...props}
+      className="input"
+      value={local}
+      onChange={handleChange}
+      onBlur={handleBlur}
+    />
   )
 }
 
