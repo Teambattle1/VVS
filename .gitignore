@@ -42,3 +42,6 @@ files.zip
 
 # Claude Code lokale indstillinger
 .claude/settings.local.json
+
+# Local Netlify folder
+.netlify

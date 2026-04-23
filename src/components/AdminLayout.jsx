@@ -90,9 +90,9 @@ export default function AdminLayout() {
         </div>
       </header>
 
-      <div className="max-w-7xl mx-auto px-4 md:px-6 py-5 grid grid-cols-1 md:grid-cols-[240px_1fr] gap-5">
-        <aside className="md:sticky md:top-20 md:self-start">
-          <nav className="bg-white rounded-2xl shadow-sm border border-slate-100 p-2 flex md:flex-col gap-1 overflow-x-auto md:overflow-visible">
+      <div className="max-w-7xl mx-auto px-4 md:px-6 py-5 grid grid-cols-1 lg:grid-cols-[240px_1fr] gap-5">
+        <aside className="lg:sticky lg:top-20 lg:self-start">
+          <nav className="bg-white rounded-2xl shadow-sm border border-slate-100 p-2 flex lg:flex-col gap-1 overflow-x-auto lg:overflow-visible">
             {NAV.map((item) => {
               const Icon = item.icon
               return (
@@ -114,7 +114,7 @@ export default function AdminLayout() {
               )
             })}
           </nav>
-          <div className="hidden md:block mt-4 px-2 text-[11px] text-slate-400 leading-relaxed">
+          <div className="hidden lg:block mt-4 px-2 text-[11px] text-slate-400 leading-relaxed">
             <FileText className="w-3.5 h-3.5 inline mr-1" strokeWidth={2} />
             Ændringer gælder for hele din organisation.
           </div>

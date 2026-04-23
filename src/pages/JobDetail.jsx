@@ -120,7 +120,7 @@ export default function JobDetail() {
           <button
             type="button"
             onClick={handlePreview}
-            className="hidden md:inline-flex btn-secondary"
+            className="hidden lg:inline-flex btn-secondary"
             title="Se som kunde ser det"
           >
             <Eye className="w-5 h-5 text-slate-700" strokeWidth={2} />
@@ -130,7 +130,7 @@ export default function JobDetail() {
             type="button"
             onClick={handleDownloadPDF}
             disabled={exporting}
-            className="hidden md:inline-flex btn-secondary"
+            className="hidden lg:inline-flex btn-secondary"
           >
             <FileDown className="w-5 h-5 text-slate-700" strokeWidth={2} />
             {exporting ? 'Genererer…' : 'PDF'}
@@ -138,7 +138,7 @@ export default function JobDetail() {
           <button
             type="button"
             onClick={handleShare}
-            className="hidden md:inline-flex btn-secondary"
+            className="hidden lg:inline-flex btn-secondary"
           >
             <Share2 className="w-5 h-5 text-slate-700" strokeWidth={2} />
             Del med kunde
@@ -233,31 +233,18 @@ export default function JobDetail() {
           )}
         </section>
 
-        <section className="flex flex-col md:flex-row gap-2 pt-2">
-          <button
-            type="button"
-            onClick={handlePreview}
-            className="btn-secondary flex-1 md:hidden"
-          >
+        <section className="grid grid-cols-3 lg:hidden gap-2 pt-2">
+          <button type="button" onClick={handlePreview} className="btn-secondary">
             <Eye className="w-5 h-5 text-slate-700" strokeWidth={2} />
-            Preview
+            <span className="hidden sm:inline">Preview</span>
           </button>
-          <button
-            type="button"
-            onClick={handleDownloadPDF}
-            disabled={exporting}
-            className="btn-secondary flex-1 md:hidden"
-          >
+          <button type="button" onClick={handleDownloadPDF} disabled={exporting} className="btn-secondary">
             <FileDown className="w-5 h-5 text-slate-700" strokeWidth={2} />
-            {exporting ? 'Genererer…' : 'Download PDF'}
+            <span className="hidden sm:inline">{exporting ? 'Genererer…' : 'PDF'}</span>
           </button>
-          <button
-            type="button"
-            onClick={handleShare}
-            className="btn-accent flex-1 md:hidden"
-          >
+          <button type="button" onClick={handleShare} className="btn-accent">
             <Share2 className="w-5 h-5 text-white" strokeWidth={2.25} />
-            Del med kunde
+            <span className="hidden sm:inline">Del med kunde</span>
           </button>
           {job.status === 'draft' && (
             <button

@@ -59,7 +59,7 @@ export default function Dashboard() {
   const totalPipeline = jobs.reduce((sum, j) => sum + (j.total_price_excl_vat || 0), 0)
 
   return (
-    <div className="min-h-screen pb-24 md:pb-8 bg-slate-50">
+    <div className="min-h-screen pb-24 lg:pb-8 bg-slate-50">
       <header className="bg-white border-b border-slate-200 sticky top-0 z-30">
         <div className="max-w-5xl mx-auto px-4 md:px-6 py-3 flex items-center gap-3">
           <OrgLogo org={org} size={40} />
@@ -163,7 +163,7 @@ export default function Dashboard() {
               <p className="text-slate-500 text-sm">Ingen sager matcher din søgning.</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4">
               {filteredJobs.map((job) => (
                 <JobCard key={job.id} job={job} />
               ))}
@@ -286,7 +286,7 @@ function BottomNav() {
     { id: 'me', label: 'Mig', icon: UserCircle },
   ]
   return (
-    <nav className="fixed bottom-0 inset-x-0 z-40 bg-white border-t border-slate-200 md:hidden">
+    <nav className="fixed bottom-0 inset-x-0 z-40 bg-white border-t border-slate-200 lg:hidden">
       <div className="grid grid-cols-4">
         {items.map((item) => {
           const Icon = item.icon
