@@ -14,6 +14,18 @@ export default class ErrorBoundary extends Component {
   componentDidCatch(error, info) {
     // eslint-disable-next-line no-console
     console.error('VVS FLOW error:', error, info)
+
+    // Chunk-load fejl = brugeren har gammel bundle-reference efter ny deploy.
+    // Hard-reload een gang for at hente nye hashes. sessionStorage-flag stopper loop.
+    const msg = String(error?.message || '')
+    const isChunkError =
+      /Failed to fetch dynamically imported module/i.test(msg) ||
+      /Loading chunk [\d]+ failed/i.test(msg) ||
+      /ChunkLoadError/i.test(msg)
+    if (isChunkError && !sessionStorage.getItem('vvs-chunk-reload')) {
+      sessionStorage.setItem('vvs-chunk-reload', '1')
+      window.location.reload()
+    }
   }
 
   handleReset = () => {

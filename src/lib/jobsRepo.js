@@ -251,13 +251,17 @@ export async function deleteRoom(roomId) {
 // ============================================
 // Room packages (placerede pakker)
 // ============================================
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
 export async function createRoomPackage({ roomId, orgId, templateId, name, lucideIcon, positionX, positionY, pricingModel, fixedPrice, hours, hourlyRate }) {
+  // Mock-template-IDs (fx 't-bath-06') er ikke UUIDs — send null til DB for at undgaa 22P02
+  const safeTemplateId = templateId && UUID_RE.test(String(templateId)) ? templateId : null
   const { data, error } = await supabase
     .from('vvs_room_packages')
     .insert({
       room_id: roomId,
       organization_id: orgId,
-      template_id: templateId,
+      template_id: safeTemplateId,
       name,
       lucide_icon: lucideIcon,
       position_x: positionX,

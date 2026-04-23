@@ -18,6 +18,7 @@ import { formatDKK, packageTotal, packageLaborTotal, packageItemsTotal } from '.
 import LucideByName from './LucideByName.jsx'
 import ItemSearch from './ItemSearch.jsx'
 import PhotoGallery from './PhotoGallery.jsx'
+import IconPicker from './IconPicker.jsx'
 
 const SHAPES = [
   { value: 'circle',  label: 'Cirkel',  icon: CircleIcon },
@@ -61,6 +62,7 @@ export default function PackageDetail({ jobId, roomId, pkg, onClose }) {
     removePackagePhoto,
   } = useJobs()
   const [showItemSearch, setShowItemSearch] = useState(false)
+  const [showIconPicker, setShowIconPicker] = useState(false)
 
   if (!pkg) return null
 
@@ -116,6 +118,28 @@ export default function PackageDetail({ jobId, roomId, pkg, onClose }) {
               Markør på grundplan
             </h3>
             <div className="space-y-2">
+              <div>
+                <div className="text-[11px] text-slate-500 mb-1">Ikon</div>
+                <button
+                  type="button"
+                  onClick={() => setShowIconPicker(true)}
+                  className="w-full rounded-2xl border-2 border-slate-200 hover:border-sky-300 bg-white dark:bg-slate-800 dark:border-slate-700 p-3 flex items-center gap-3 transition-colors"
+                >
+                  <div
+                    className="w-11 h-11 rounded-2xl flex items-center justify-center flex-shrink-0"
+                    style={{ backgroundColor: (pkg.color || '#E11D48') + '22', color: pkg.color || '#E11D48' }}
+                  >
+                    <LucideByName name={pkg.lucide_icon} className="w-6 h-6" strokeWidth={2} />
+                  </div>
+                  <div className="flex-1 min-w-0 text-left">
+                    <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                      {pkg.lucide_icon || 'Vælg ikon'}
+                    </div>
+                    <div className="text-xs text-slate-500">Toilet · Vask · Bad · Vandhane m.fl.</div>
+                  </div>
+                  <span className="text-xs font-semibold text-sky-600">Skift</span>
+                </button>
+              </div>
               <div>
                 <div className="text-[11px] text-slate-500 mb-1">Form</div>
                 <div className="grid grid-cols-4 gap-1.5">
@@ -392,6 +416,18 @@ export default function PackageDetail({ jobId, roomId, pkg, onClose }) {
             addItemToPackage(jobId, roomId, pkg.id, { item, quantity: qty })
             setShowItemSearch(false)
           }}
+        />
+      )}
+
+      {showIconPicker && (
+        <IconPicker
+          value={pkg.lucide_icon}
+          color={pkg.color || '#E11D48'}
+          onChange={(iconName) => {
+            setField({ lucide_icon: iconName })
+            setShowIconPicker(false)
+          }}
+          onClose={() => setShowIconPicker(false)}
         />
       )}
     </>

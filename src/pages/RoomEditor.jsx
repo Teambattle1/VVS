@@ -392,6 +392,20 @@ export default function RoomEditor() {
             )}
           </div>
 
+          <div className="flex items-center justify-between mb-2 px-1">
+            <div className="min-w-0 flex-1">
+              <div className="text-xs uppercase tracking-wide text-slate-400 font-semibold dark:text-slate-500">
+                Grundplan
+              </div>
+              <h2 className="text-base md:text-lg font-bold text-slate-900 dark:text-white truncate">
+                {room.name}
+              </h2>
+            </div>
+            <div className="text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap">
+              {room.width_cm} × {room.length_cm} cm · {room.packages?.length || 0} pakker
+            </div>
+          </div>
+
           <FloorplanCanvas
             room={room}
             placing={placing}
