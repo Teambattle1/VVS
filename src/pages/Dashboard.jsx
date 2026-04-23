@@ -14,6 +14,7 @@ import {
   Building2,
   Settings as SettingsIcon,
   ShieldCheck,
+  Eye,
 } from 'lucide-react'
 import clsx from 'clsx'
 import { useAuth } from '../contexts/AuthContext.jsx'
@@ -210,11 +211,12 @@ function StatCard({ label, value, suffix }) {
 
 function JobCard({ job }) {
   const status = STATUS_LABELS[job.status] || STATUS_LABELS.draft
+  const previewUrl = `${window.location.origin}/k/${job.share_token || job.id}`
   return (
     <Link
       to={`/jobs/${job.id}`}
       className={clsx(
-        'relative bg-white rounded-2xl shadow-sm border-2 overflow-hidden p-4 md:p-5 hover:shadow-md transition-shadow active:scale-[0.99] flex flex-col',
+        'relative bg-white rounded-2xl shadow-sm border-2 overflow-hidden p-4 md:p-5 hover:shadow-md transition-shadow active:scale-[0.99] flex flex-col group',
         status.border
       )}
     >
@@ -253,8 +255,23 @@ function JobCard({ job }) {
         <div className="text-sm font-semibold text-slate-900">
           {priceLabel(job.total_price_excl_vat, job.vat_handling)}
         </div>
-        <div className="text-xs text-slate-500">
-          {job.rooms_count || 0} rum
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-slate-500">
+            {job.rooms_count || 0} rum
+          </span>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              window.open(previewUrl, '_blank', 'noopener,noreferrer')
+            }}
+            className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-semibold text-sky-700 bg-sky-50 hover:bg-sky-100 transition-colors"
+            title="Preview som kunde"
+          >
+            <Eye className="w-3.5 h-3.5" strokeWidth={2} />
+            Preview
+          </button>
         </div>
       </div>
     </Link>

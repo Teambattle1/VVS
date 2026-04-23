@@ -12,6 +12,7 @@ import {
   Trash2,
   Home,
   FileDown,
+  Eye,
 } from 'lucide-react'
 import clsx from 'clsx'
 import { useJobs } from '../contexts/JobsContext.jsx'
@@ -116,6 +117,15 @@ export default function JobDetail() {
             </div>
             <h1 className="text-sm md:text-base font-bold text-slate-900 truncate">{job.title}</h1>
           </div>
+          <button
+            type="button"
+            onClick={handlePreview}
+            className="hidden md:inline-flex btn-secondary"
+            title="Se som kunde ser det"
+          >
+            <Eye className="w-5 h-5 text-slate-700" strokeWidth={2} />
+            Preview
+          </button>
           <button
             type="button"
             onClick={handleDownloadPDF}
@@ -224,6 +234,14 @@ export default function JobDetail() {
         </section>
 
         <section className="flex flex-col md:flex-row gap-2 pt-2">
+          <button
+            type="button"
+            onClick={handlePreview}
+            className="btn-secondary flex-1 md:hidden"
+          >
+            <Eye className="w-5 h-5 text-slate-700" strokeWidth={2} />
+            Preview
+          </button>
           <button
             type="button"
             onClick={handleDownloadPDF}
