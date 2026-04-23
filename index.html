@@ -4,8 +4,27 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="apple-touch-icon" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
     <meta name="theme-color" content="#E11D48" />
+
+    <!-- PWA / fullscreen paa iOS -->
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="VVS FLOW" />
+
+    <!-- Tailwind klasse 'dark' saettes inden React bootstrapper saa der ikke flashes -->
+    <script>
+      (function () {
+        try {
+          var t = localStorage.getItem('vvs.theme') || 'system';
+          var isDark = t === 'dark' || (t === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+          if (isDark) document.documentElement.classList.add('dark');
+        } catch (_) {}
+      })();
+    </script>
+
     <title>VVS FLOW</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />

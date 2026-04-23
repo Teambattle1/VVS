@@ -60,6 +60,36 @@ body,
   height: 100%;
 }
 
+/* Safe-area padding saa indhold ikke gemmer sig under notch/hjemmeindikator paa iOS */
+body {
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}
+
+/* Sticky elements - undgaa at de sidder under notch */
+header.sticky,
+nav.fixed {
+  padding-top: env(safe-area-inset-top);
+}
+
+nav.fixed.bottom-0 {
+  padding-top: 0;
+  padding-bottom: max(env(safe-area-inset-bottom), 0px);
+}
+
+/* Overskyg standalone-mode: ingen tekst-selektion paa UI, kun i inputs */
+@media (display-mode: standalone) {
+  * {
+    -webkit-touch-callout: none;
+  }
+  input, textarea, [contenteditable] {
+    -webkit-user-select: text;
+    user-select: text;
+  }
+}
+
 body {
   font-feature-settings: 'ss01', 'cv11';
   -webkit-font-smoothing: antialiased;
