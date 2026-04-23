@@ -18,14 +18,17 @@ const MOCK_USER = {
 // Benyttes som fallback hvis Supabase Auth ikke kender brugeren.
 function tryDemoTeamLogin(email, password) {
   const e = email.trim().toLowerCase()
-  // Dynamisk team-list fra localStorage (tilfoejede brugere) + INITIAL_TEAM fallback
-  let list = INITIAL_TEAM
+  // Union: localStorage-tilfoejede + INITIAL_TEAM. localStorage vinder paa email-match.
+  let stored = []
   try {
-    const stored = localStorage.getItem('vvs.demoTeam')
-    if (stored) list = JSON.parse(stored)
+    const raw = localStorage.getItem('vvs.demoTeam')
+    if (raw) stored = JSON.parse(raw) || []
   } catch { /* ignore */ }
-  const match = list.find((u) => u.email?.toLowerCase() === e && u.active !== false)
-  if (!match) return null
+  const byEmail = new Map()
+  for (const u of INITIAL_TEAM) byEmail.set(u.email?.toLowerCase(), u)
+  for (const u of stored) byEmail.set(u.email?.toLowerCase(), u)
+  const match = byEmail.get(e)
+  if (!match || match.active === false) return null
   const expected = match.password || '1234'
   if (password !== expected) return null
   return {
