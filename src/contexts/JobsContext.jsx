@@ -280,6 +280,8 @@ export function JobsProvider({ children }) {
             address: customer.address,
             zip: customer.zip,
             city: customer.city,
+            lat: customer.lat,
+            lon: customer.lon,
             customerType: customer.customer_type,
             defaultVatHandling: vatHandling,
           })

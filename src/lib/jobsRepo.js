@@ -31,6 +31,10 @@ function normalizeJob(row) {
           email: row.vvs_customers.email,
           phone: row.vvs_customers.phone,
           customer_type: row.vvs_customers.customer_type,
+          lat: row.vvs_customers.lat ? Number(row.vvs_customers.lat) : null,
+          lon: row.vvs_customers.lon ? Number(row.vvs_customers.lon) : null,
+          zip: row.vvs_customers.zip,
+          city: row.vvs_customers.city,
         }
       : null,
     rooms: (row.vvs_rooms || [])
@@ -181,7 +185,10 @@ export async function updateJob(jobId, patch) {
 // ============================================
 // Customers
 // ============================================
-export async function createCustomer({ orgId, name, email, phone, address, zip, city, customerType, defaultVatHandling }) {
+export async function createCustomer({
+  orgId, name, email, phone, address, zip, city, lat, lon,
+  customerType, defaultVatHandling,
+}) {
   const { data, error } = await supabase
     .from('vvs_customers')
     .insert({
@@ -192,6 +199,8 @@ export async function createCustomer({ orgId, name, email, phone, address, zip, 
       address,
       zip,
       city,
+      lat: lat ?? null,
+      lon: lon ?? null,
       customer_type: customerType,
       default_vat_handling: defaultVatHandling,
     })
