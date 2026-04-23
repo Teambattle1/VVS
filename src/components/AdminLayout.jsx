@@ -24,6 +24,21 @@ const NAV = [
   { to: '/admin/integrations', label: 'Integrationer', icon: Plug },
 ]
 
+function getInitials(user) {
+  if (!user) return '?'
+  const src = user.name || user.email || '?'
+  const parts = src.split(/[\s@.]+/).filter(Boolean)
+  if (parts.length === 0) return '?'
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
+  return (parts[0][0] + parts[1][0]).toUpperCase()
+}
+
+function avatarColor(seed = '') {
+  let h = 0
+  for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) % 360
+  return `hsl(${h}, 55%, 45%)`
+}
+
 export default function AdminLayout() {
   const navigate = useNavigate()
   const { user, signOut } = useAuth()
@@ -113,18 +128,3 @@ export default function AdminLayout() {
   )
 }
 
-function getInitials(user) {
-  if (!user) return '?'
-  const src = user.name || user.email || '?'
-  const parts = src.split(/[\s@.]+/).filter(Boolean)
-  if (parts.length === 0) return '?'
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
-  return (parts[0][0] + parts[1][0]).toUpperCase()
-}
-
-function avatarColor(seed = '') {
-  // Simpel hash til deterministisk farve
-  let h = 0
-  for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) % 360
-  return `hsl(${h}, 55%, 45%)`
-}
