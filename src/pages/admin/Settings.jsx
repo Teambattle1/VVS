@@ -31,6 +31,35 @@ const DEMO_MONTORER = [
 const PRESET_COLORS = ['#0EA5E9', '#DC2626', '#059669', '#7C3AED', '#EA580C', '#0F172A']
 const ACCENT_COLORS = ['#F59E0B', '#EC4899', '#06B6D4', '#84CC16', '#6366F1', '#F43F5E']
 
+function readAsDataURL(file) {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader()
+    r.onload = () => resolve(r.result)
+    r.onerror = () => reject(new Error('Kunne ikke laese fil'))
+    r.readAsDataURL(file)
+  })
+}
+
+// Komprimer billede til max-bredde 'maxPx' og JPEG 80% (eller PNG for SVG/transparens)
+async function resizeImage(file, maxPx = 512) {
+  const url = await readAsDataURL(file)
+  const img = await new Promise((resolve, reject) => {
+    const i = new Image()
+    i.onload = () => resolve(i)
+    i.onerror = () => reject(new Error('Kunne ikke aabne billedet'))
+    i.src = url
+  })
+  const ratio = Math.min(1, maxPx / Math.max(img.width, img.height))
+  const w = Math.round(img.width * ratio)
+  const h = Math.round(img.height * ratio)
+  const canvas = document.createElement('canvas')
+  canvas.width = w
+  canvas.height = h
+  const ctx = canvas.getContext('2d')
+  ctx.drawImage(img, 0, 0, w, h)
+  return canvas.toDataURL('image/jpeg', 0.82)
+}
+
 export default function AdminSettings() {
   const { org, updateOrg, team, addTeamMember, updateTeamMember, removeTeamMember } = useOrg()
   const toast = useToast()
@@ -141,13 +170,26 @@ export default function AdminSettings() {
     toast.success(`${demos.length} demo-montør${demos.length === 1 ? '' : 'er'} fjernet`)
   }
 
-  function handleLogoUpload(e) {
+  async function handleLogoUpload(e) {
     const file = e.target.files?.[0]
-    if (!file) return
-    const reader = new FileReader()
-    reader.onload = () => handleField('logo_url', reader.result)
-    reader.readAsDataURL(file)
     e.target.value = ''
+    if (!file) return
+    if (!org?.id) {
+      toast.error('Ingen organisation valgt — kan ikke gemme logo')
+      return
+    }
+    if (!file.type.startsWith('image/')) {
+      toast.error('Vælg en billedfil (PNG, JPG eller SVG)')
+      return
+    }
+    try {
+      // Komprimer hvis > 300KB saa data-URL ikke bliver for stor
+      const dataUrl = file.size > 300 * 1024 ? await resizeImage(file, 512) : await readAsDataURL(file)
+      await handleField('logo_url', dataUrl)
+      toast.success('Logo opdateret')
+    } catch (err) {
+      toast.error('Kunne ikke uploade logo: ' + (err?.message || err))
+    }
   }
 
   return (
