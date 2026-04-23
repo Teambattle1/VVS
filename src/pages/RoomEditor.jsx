@@ -45,10 +45,20 @@ export default function RoomEditor() {
 
   const [placing, setPlacing] = useState(false)
   const [drawing, setDrawing] = useState(false)
+  const [drawColor, setDrawColor] = useState('#0F172A')
+  const [drawWidth, setDrawWidth] = useState(3)
   const [showPicker, setShowPicker] = useState(false)
   const [selectedPackageId, setSelectedPackageId] = useState(null)
   const [pendingTemplate, setPendingTemplate] = useState(null)
   const fileInputRef = useRef(null)
+
+  const DRAW_COLORS = ['#0F172A', '#E11D48', '#0EA5E9', '#059669', '#F59E0B', '#7C3AED', '#64748B', '#FFFFFF']
+  const DRAW_WIDTHS = [
+    { value: 2, label: 'Tynd' },
+    { value: 3, label: 'Medium' },
+    { value: 5, label: 'Tyk' },
+    { value: 8, label: 'Ekstra' },
+  ]
 
   const job = getJob(jobId)
   const room = getRoom(jobId, roomId)
@@ -220,41 +230,109 @@ export default function RoomEditor() {
             </div>
 
             {isFreehand && (
-              <div className="flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3">
-                <button
-                  type="button"
-                  onClick={() => setDrawing((d) => !d)}
-                  className={clsx(
-                    'inline-flex items-center gap-1.5 rounded-2xl px-3 py-2 text-sm font-semibold border-2 min-h-[40px]',
-                    drawing
-                      ? 'border-sky-500 bg-sky-500 text-white'
-                      : 'border-sky-500 bg-white text-sky-700 hover:bg-sky-50'
-                  )}
-                >
-                  <Pencil className="w-4 h-4" strokeWidth={2} />
-                  {drawing ? 'Stop tegning' : 'Start tegning'}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => undoDrawing(job.id, room.id)}
-                  disabled={!hasDrawing}
-                  className="btn-secondary disabled:opacity-40"
-                >
-                  <Undo2 className="w-4 h-4 text-slate-700" strokeWidth={2} />
-                  Fortryd
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (!hasDrawing) return
-                    if (confirm('Slet alle tegnede streger?')) clearDrawing(job.id, room.id)
-                  }}
-                  disabled={!hasDrawing}
-                  className="text-sm text-rose-600 hover:text-rose-700 font-semibold disabled:opacity-40 inline-flex items-center gap-1 px-2"
-                >
-                  <X className="w-4 h-4" strokeWidth={2} />
-                  Ryd
-                </button>
+              <div className="space-y-3 border-t border-slate-100 pt-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setDrawing((d) => !d)}
+                    className={clsx(
+                      'inline-flex items-center gap-1.5 rounded-2xl px-3 py-2 text-sm font-semibold border-2 min-h-[40px]',
+                      drawing
+                        ? 'border-sky-500 bg-sky-500 text-white'
+                        : 'border-sky-500 bg-white text-sky-700 hover:bg-sky-50'
+                    )}
+                  >
+                    <Pencil className="w-4 h-4" strokeWidth={2} />
+                    {drawing ? 'Stop tegning' : 'Start tegning'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => undoDrawing(job.id, room.id)}
+                    disabled={!hasDrawing}
+                    className="btn-secondary disabled:opacity-40"
+                  >
+                    <Undo2 className="w-4 h-4 text-slate-700" strokeWidth={2} />
+                    Fortryd
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!hasDrawing) return
+                      if (confirm('Slet alle tegnede streger?')) clearDrawing(job.id, room.id)
+                    }}
+                    disabled={!hasDrawing}
+                    className="text-sm text-rose-600 hover:text-rose-700 font-semibold disabled:opacity-40 inline-flex items-center gap-1 px-2"
+                  >
+                    <X className="w-4 h-4" strokeWidth={2} />
+                    Ryd
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <div className="text-[11px] font-semibold text-slate-500 mb-1.5">Farve</div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {DRAW_COLORS.map((c) => {
+                        const active = drawColor.toLowerCase() === c.toLowerCase()
+                        return (
+                          <button
+                            key={c}
+                            type="button"
+                            onClick={() => setDrawColor(c)}
+                            className={clsx(
+                              'w-10 h-10 rounded-2xl border-2 transition-transform touch-manipulation',
+                              active ? 'border-slate-900 scale-110 shadow-md' : 'border-slate-200 hover:scale-105'
+                            )}
+                            style={{ backgroundColor: c }}
+                            aria-label={`Vælg farve ${c}`}
+                            title={c}
+                          />
+                        )
+                      })}
+                      <input
+                        type="color"
+                        value={drawColor}
+                        onChange={(e) => setDrawColor(e.target.value)}
+                        className="w-12 h-10 rounded-2xl border border-slate-200 cursor-pointer"
+                        title="Brugerdefineret farve"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="text-[11px] font-semibold text-slate-500 mb-1.5">Tykkelse</div>
+                    <div className="grid grid-cols-4 gap-1.5">
+                      {DRAW_WIDTHS.map((w) => {
+                        const active = drawWidth === w.value
+                        return (
+                          <button
+                            key={w.value}
+                            type="button"
+                            onClick={() => setDrawWidth(w.value)}
+                            className={clsx(
+                              'rounded-2xl border-2 p-2 flex flex-col items-center gap-1 min-h-[56px] touch-manipulation transition-colors',
+                              active
+                                ? 'border-sky-500 bg-sky-50 dark:bg-sky-900/30'
+                                : 'border-slate-200 bg-white dark:bg-slate-800 hover:border-slate-300'
+                            )}
+                          >
+                            <div
+                              className="rounded-full"
+                              style={{
+                                width: Math.max(w.value * 2, 6),
+                                height: w.value,
+                                backgroundColor: drawColor,
+                              }}
+                            />
+                            <span className="text-[9px] font-bold text-slate-600 dark:text-slate-400">
+                              {w.label}
+                            </span>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                </div>
               </div>
             )}
 
@@ -297,11 +375,15 @@ export default function RoomEditor() {
             room={room}
             placing={placing}
             drawing={drawing}
+            drawColor={drawColor}
+            drawWidth={drawWidth}
             selectedPackageId={selectedPackageId}
             onPlace={handlePlacedAt}
             onSelectPackage={setSelectedPackageId}
             onMovePackage={handleMove}
-            onAddLine={(points) => addDrawingLine(job.id, room.id, points)}
+            onAddLine={(points) =>
+              addDrawingLine(job.id, room.id, points, { color: drawColor, width: drawWidth })
+            }
           />
 
           {placing && (

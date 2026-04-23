@@ -388,7 +388,7 @@ export function JobsProvider({ children }) {
     }
   }
 
-  function addDrawingLine(jobId, roomId, points) {
+  function addDrawingLine(jobId, roomId, points, opts = {}) {
     setJobs((prev) =>
       prev.map((j) =>
         j.id === jobId
@@ -400,7 +400,15 @@ export function JobsProvider({ children }) {
                       ...r,
                       floorplan_data: {
                         ...(r.floorplan_data || {}),
-                        lines: [...(r.floorplan_data?.lines || []), { id: uid('ln'), points }],
+                        lines: [
+                          ...(r.floorplan_data?.lines || []),
+                          {
+                            id: uid('ln'),
+                            points,
+                            color: opts.color || '#0F172A',
+                            width: opts.width || 3,
+                          },
+                        ],
                       },
                     }
                   : r
