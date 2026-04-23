@@ -13,6 +13,18 @@ import clsx from 'clsx'
 
 const INTEGRATIONS = [
   {
+    id: 'ao',
+    category: 'Grossist',
+    name: 'AO (Ahlsell)',
+    description:
+      'Hent live priser, lager og billeder fra AO.dk. Kræver B2B-kundeaftale + OCI PunchOut-opsætning via AO Erhverv.',
+    icon: PackageIcon,
+    status: 'requires-contract',
+    phase: 'Kræver aftale',
+    note: 'Intet offentligt developer-API. Kontakt AO Erhverv på erhverv@ao.dk for at aktivere OCI/cXML-integration.',
+    externalUrl: 'https://www.ao.dk/erhverv',
+  },
+  {
     id: 'sanistaal',
     category: 'Grossist',
     name: 'Sanistål',
@@ -73,14 +85,21 @@ const INTEGRATIONS = [
 const STATUS_META = {
   connected: { label: 'Forbundet', icon: Check, color: 'bg-emerald-100 text-emerald-800' },
   planned: { label: 'Planlagt', icon: Clock, color: 'bg-slate-100 text-slate-700' },
+  'requires-contract': { label: 'Kræver aftale', icon: Clock, color: 'bg-amber-100 text-amber-800' },
 }
 
 export default function AdminIntegrations() {
   const [toast, setToast] = useState(null)
 
   function handleConnect(integration) {
-    setToast(`${integration.name} kommer i ${integration.phase}. Kontakt support hvis du har brug for tidlig adgang.`)
-    setTimeout(() => setToast(null), 4000)
+    if (integration.status === 'requires-contract') {
+      setToast(
+        `${integration.name}: ${integration.note || 'Kræver aftale med leverandøren.'}`
+      )
+    } else {
+      setToast(`${integration.name} kommer i ${integration.phase}. Kontakt support hvis du har brug for tidlig adgang.`)
+    }
+    setTimeout(() => setToast(null), 6000)
   }
 
   const byCategory = INTEGRATIONS.reduce((acc, i) => {
@@ -134,24 +153,42 @@ export default function AdminIntegrations() {
                       <p className="text-xs text-slate-600">{it.description}</p>
                     </div>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => handleConnect(it)}
-                    disabled={it.status === 'connected'}
-                    className="btn-secondary w-full"
-                  >
-                    {it.status === 'connected' ? (
-                      <>
-                        <Check className="w-4 h-4 text-emerald-600" strokeWidth={2.5} />
-                        Administrer
-                      </>
-                    ) : (
-                      <>
-                        Tilslut
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleConnect(it)}
+                      disabled={it.status === 'connected'}
+                      className="btn-secondary flex-1"
+                    >
+                      {it.status === 'connected' ? (
+                        <>
+                          <Check className="w-4 h-4 text-emerald-600" strokeWidth={2.5} />
+                          Administrer
+                        </>
+                      ) : it.status === 'requires-contract' ? (
+                        <>
+                          Kontakt leverandør
+                          <ArrowUpRight className="w-4 h-4 text-slate-700" strokeWidth={2} />
+                        </>
+                      ) : (
+                        <>
+                          Tilslut
+                          <ArrowUpRight className="w-4 h-4 text-slate-700" strokeWidth={2} />
+                        </>
+                      )}
+                    </button>
+                    {it.externalUrl && (
+                      <a
+                        href={it.externalUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="btn-secondary flex-shrink-0"
+                        title="Åbn leverandør-side"
+                      >
                         <ArrowUpRight className="w-4 h-4 text-slate-700" strokeWidth={2} />
-                      </>
+                      </a>
                     )}
-                  </button>
+                  </div>
                 </li>
               )
             })}
