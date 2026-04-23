@@ -2,6 +2,31 @@
   command = "npm run build"
   publish = "dist"
 
+# HTML: aldrig cache, saa ny deploy bliver hentet med det samme
+[[headers]]
+  for = "/*.html"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+[[headers]]
+  for = "/"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+# Hashede assets: cache 1 aar (indholdet aendrer sig aldrig ved samme hash)
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+# Assets der ikke findes: returnér 404 i stedet for at fallback til index.html
+# (ellers bliver de serveret som text/html -> JS module script fejler)
+[[redirects]]
+  from = "/assets/*"
+  to = "/assets/:splat"
+  status = 404
+
+# Alle andre paths: SPA fallback til index.html
 [[redirects]]
   from = "/*"
   to = "/index.html"
