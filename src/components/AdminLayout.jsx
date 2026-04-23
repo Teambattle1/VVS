@@ -13,7 +13,7 @@ import {
 import clsx from 'clsx'
 import { useAuth } from '../contexts/AuthContext.jsx'
 import { useOrg } from '../contexts/OrgContext.jsx'
-import BrandIcon from './BrandIcon.jsx'
+import OrgLogo from './OrgLogo.jsx'
 
 const NAV = [
   { to: '/admin/packages', label: 'Pakke-skabeloner', icon: Package },
@@ -26,8 +26,10 @@ const NAV = [
 
 export default function AdminLayout() {
   const navigate = useNavigate()
-  const { signOut } = useAuth()
+  const { user, signOut } = useAuth()
   const { org } = useOrg()
+
+  const initials = getInitials(user)
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -41,16 +43,32 @@ export default function AdminLayout() {
           >
             <ArrowLeft className="w-5 h-5" strokeWidth={2} />
           </button>
-          <BrandIcon size={36} className="text-slate-900" />
+          <OrgLogo org={org} size={40} />
           <div className="flex-1 min-w-0">
             <div className="text-xs text-slate-500 truncate">{org?.name || 'Org-admin'}</div>
             <div className="text-sm font-bold text-slate-900 truncate">Administration</div>
           </div>
+
+          <div className="hidden sm:flex items-center gap-2 pl-3 pr-1 py-1 rounded-2xl hover:bg-slate-50">
+            <div
+              className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
+              style={{ backgroundColor: avatarColor(user?.email) }}
+              title={user?.email}
+            >
+              {initials}
+            </div>
+            <div className="flex flex-col items-start leading-tight min-w-0 max-w-[180px]">
+              <span className="text-xs font-semibold text-slate-900 truncate">{user?.name || 'Bruger'}</span>
+              <span className="text-[10px] text-slate-500 truncate">{user?.email}</span>
+            </div>
+          </div>
+
           <button
             type="button"
             onClick={signOut}
             className="inline-flex items-center justify-center w-10 h-10 rounded-2xl text-slate-500 hover:bg-slate-100"
             aria-label="Log ud"
+            title="Log ud"
           >
             <LogOut className="w-5 h-5" strokeWidth={2} />
           </button>
@@ -93,4 +111,20 @@ export default function AdminLayout() {
       </div>
     </div>
   )
+}
+
+function getInitials(user) {
+  if (!user) return '?'
+  const src = user.name || user.email || '?'
+  const parts = src.split(/[\s@.]+/).filter(Boolean)
+  if (parts.length === 0) return '?'
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
+  return (parts[0][0] + parts[1][0]).toUpperCase()
+}
+
+function avatarColor(seed = '') {
+  // Simpel hash til deterministisk farve
+  let h = 0
+  for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) % 360
+  return `hsl(${h}, 55%, 45%)`
 }

@@ -21,7 +21,7 @@ import { useOrg } from '../contexts/OrgContext.jsx'
 import { useJobs } from '../contexts/JobsContext.jsx'
 import { STATUS_LABELS } from '../lib/mockJobs.js'
 import { priceLabel } from '../lib/pricing.js'
-import BrandIcon from '../components/BrandIcon.jsx'
+import OrgLogo from '../components/OrgLogo.jsx'
 import MontorTour from '../components/MontorTour.jsx'
 
 const STATUS_FILTERS = [
@@ -61,10 +61,24 @@ export default function Dashboard() {
     <div className="min-h-screen pb-24 md:pb-8 bg-slate-50">
       <header className="bg-white border-b border-slate-200 sticky top-0 z-30">
         <div className="max-w-5xl mx-auto px-4 md:px-6 py-3 flex items-center gap-3">
-          <BrandIcon size={40} className="flex-shrink-0 text-slate-900" />
+          <OrgLogo org={org} size={40} />
           <div className="flex-1 min-w-0">
             <div className="text-xs text-slate-500 truncate">{org?.name || 'VVS Firma'}</div>
             <div className="text-sm font-bold text-slate-900 truncate">Mine sager</div>
+          </div>
+
+          <div className="hidden sm:flex items-center gap-2 px-2 py-1 rounded-2xl hover:bg-slate-50">
+            <div
+              className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
+              style={{ backgroundColor: avatarColor(user?.email) }}
+              title={user?.email}
+            >
+              {getInitials(user)}
+            </div>
+            <div className="flex flex-col items-start leading-tight min-w-0 max-w-[160px]">
+              <span className="text-xs font-semibold text-slate-900 truncate">{user?.name || 'Bruger'}</span>
+              <span className="text-[10px] text-slate-500 truncate">{user?.email}</span>
+            </div>
           </div>
           <Link
             to="/super"
@@ -165,6 +179,21 @@ export default function Dashboard() {
       <MontorTour />
     </div>
   )
+}
+
+function getInitials(user) {
+  if (!user) return '?'
+  const src = user.name || user.email || '?'
+  const parts = src.split(/[\s@.]+/).filter(Boolean)
+  if (parts.length === 0) return '?'
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
+  return (parts[0][0] + parts[1][0]).toUpperCase()
+}
+
+function avatarColor(seed = '') {
+  let h = 0
+  for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) % 360
+  return `hsl(${h}, 55%, 45%)`
 }
 
 function StatCard({ label, value, suffix }) {
