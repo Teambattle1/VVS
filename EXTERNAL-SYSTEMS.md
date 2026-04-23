@@ -18,38 +18,53 @@
 
 ## 📋 TODO — Skal laves (prioriteret)
 
-Disse eksterne systemer er **ikke** sat op endnu. Alt andet fungerer i mock-mode uden dem:
+Status pr. `2026-04-23`:
 
-| # | System | Formål | Blocker? |
+| # | System | Formål | Status |
 |---|---|---|---|
-| 1 | 🔴 **Resend** | Sende emails til kunder + teammedlemmer | Nej — blot stille |
-| 2 | 🔴 **CPSMS** | Sende SMS til kunder (tilbud-link) | Nej — blot ingen SMS |
-| 3 | 🔴 Supabase Auth omlægning | Rigtig login i stedet for mock localStorage | Ja — før go-live |
-| 4 | 🔴 JobsContext Supabase omlægning | Data persistes i DB i stedet for hukommelse | Ja — før go-live |
-| 5 | 🔴 Netlify deploy | Få sitet online | Ja — før go-live |
-| 6 | 🔴 DNS `vvs.eventday.dk` | Rigtigt domæne | Ja — før go-live |
+| 0 | Supabase projekt oprettet (`ogfbsvhmtejqkacnjccp`) | Database + Auth | 🟢 Gjort |
+| 0 | `.env` med URL + anon key | Frontend-forbindelse | 🟢 Gjort |
+| 0 | Database migration (11 vvs_* tabeller + RLS) | Skema | 🟢 Gjort |
+| 0 | Seed (36 globale pakke-skabeloner) | Startdata | 🟢 Gjort |
+| 0 | AuthContext omlagt til Supabase Auth | Login virker mod DB | 🟢 Gjort |
+| 1 | Opret første super-admin auth-user + vvs_users-row | Kunne logge ind | 🟡 Mangler |
+| 2 | Opret første VVS-org i `vvs_organizations` | Kunne se jobs | 🟡 Mangler |
+| 3 | JobsContext omlagt til Supabase queries | Data persistes i DB | 🔴 Ikke lavet |
+| 4 | **Resend**-konto + `ef-send-email` edge function | Emails sendes rigtigt | 🔴 Ikke lavet |
+| 5 | **CPSMS**-konto + `ef-send-sms` edge function | SMS'er sendes rigtigt | 🔴 Ikke lavet |
+| 6 | Netlify site + env vars + deploy | Online | 🔴 Ikke lavet |
+| 7 | DNS `vvs.eventday.dk` i Simply.com | Rigtigt domæne | 🔴 Ikke lavet |
+| 8 | GitHub push (var 🟢 allerede committet, ikke pushed før) | Backup | 🟢 Gjort |
 
-Se detaljerne under hver sektion nedenfor.
+**Næste 3 skridt:**
+1. **#1** — opret auth-user + vvs_users-row (jeg guider)
+2. **#2** — opret org-row (eller lad onboarding-wizarden gøre det via super-admin panelet)
+3. **#3** — omlæg JobsContext til Supabase (mock-data forsvinder, rigtige jobs persistes)
+
+Derefter (#4-#7) er valgfrit før go-live — men kræves før rigtige kunder.
 
 ---
 
-## 1. Supabase (KRITISK — alt andet afhænger af det)
+## 1. Supabase (KRITISK — alt andet afhænger af det) — 🟢 STORT SET KLAR
 
-### 1.1 Opret dedikeret Supabase Pro projekt
+> **Status:** Projekt + nøgler + migration + seed er færdige.
+> Mangler: første auth-user + vvs_users-link + vvs_organizations-row.
 
-☐ **Opret projektet** via [supabase.com/dashboard](https://supabase.com/dashboard)
+### 1.1 Opret dedikeret Supabase Pro projekt — 🟢
+
+☑️ **Opret projektet** via [supabase.com/dashboard](https://supabase.com/dashboard)
 - Navn: `vvs-flow` eller `vvs-eventday`
 - Region: **Stockholm (eu-north-1)** (tættest på DK)
 - Plan: **Pro** (Realtime + bedre performance)
 
-☐ **Notér følgende værdier** (findes under Settings → API):
-- `Project URL` — fx `https://abcdefghijkl.supabase.co`
-- `anon public` (publishable) — starter med `eyJ…` eller `sb_publishable_…`
-- `service_role` (HEMMELIG — kun til edge functions, må ALDRIG commites)
+☑️ **Notér følgende værdier** (findes under Settings → API):
+- `Project URL` — `https://ogfbsvhmtejqkacnjccp.supabase.co`
+- `anon public` — indsat i `.env` ✅
+- `service_role` (HEMMELIG — kun til edge functions, må ALDRIG commites) — **mangler indsamling hvis edge functions skal deployes**
 
-### 1.2 Indsæt nøgler i `.env`
+### 1.2 Indsæt nøgler i `.env` — 🟢
 
-📄 `.env` (opret i projekt-root — er i `.gitignore`, committes IKKE):
+📄 `.env` (findes allerede i projekt-root — er i `.gitignore`, committes IKKE):
 
 ```bash
 VITE_SUPABASE_URL=https://DIT-PROJEKT-ID.supabase.co
@@ -58,31 +73,30 @@ VITE_SUPABASE_ANON_KEY=eyJ...
 
 Koden tjekker automatisk om de er sat ([src/lib/supabase.js](src/lib/supabase.js)) og aktiverer Supabase-kald via `hasSupabase`.
 
-### 1.3 Kør database migration
+### 1.3 Kør database migration — 🟢
 
-☐ Åbn Supabase dashboard → SQL Editor → Ny query
+☑️ Migration kørt fra [supabase/migrations/20260423120000_init_vvs_schema.sql](supabase/migrations/20260423120000_init_vvs_schema.sql).
 
-☐ Kopier hele indholdet af [supabase/migrations/20260423120000_init_vvs_schema.sql](supabase/migrations/20260423120000_init_vvs_schema.sql) og kør.
-
-Det opretter:
+Opretter:
 - 11 `vvs_*` tabeller med RLS policies
 - Helper-functions: `vvs_current_org_id()`, `vvs_current_role()`
 - updated_at triggers
 
-### 1.4 Kør seed data
+### 1.4 Kør seed data — 🟢
 
-☐ I samme SQL Editor → ny query → kopier [supabase/seed.sql](supabase/seed.sql) → kør.
+☑️ Seed kørt fra [supabase/seed.sql](supabase/seed.sql).
+Indsætter **36 globale pakke-skabeloner** (`organization_id = NULL`) som hver org kan klone.
 
-Det indsætter **36 globale pakke-skabeloner** (`organization_id = NULL`) som hver org kan klone til egne.
+### 1.5 Opret første super-admin (dig) — 🟡 MANGLER
 
-### 1.5 Opret første super-admin (dig)
-
-☐ Supabase Dashboard → Authentication → Users → **Add user**
+☐ **Supabase Dashboard** → [Authentication → Users → Add user](https://supabase.com/dashboard/project/ogfbsvhmtejqkacnjccp/auth/users)
 - Email: din email
 - Password: noget stærkt
 - Auto confirm: ☑️
 
-☐ Kør i SQL Editor (udskift `<din-auth-user-id>` med UUID'et fra ovenfor):
+☐ Notér `user.id` (UUID) fra Users-listen efter oprettelse.
+
+☐ Kør i SQL Editor (udskift `<din-auth-user-id>`):
 
 ```sql
 -- Opret en super-admin org (placeholder)
@@ -90,12 +104,12 @@ insert into public.vvs_organizations (name, slug, subscription_tier)
 values ('VVS FLOW Platform', 'platform', 'pro')
 returning id;
 
--- Kobl dig som super_admin
+-- Kobl dig som super_admin (brug id'et fra ovenfor)
 insert into public.vvs_users (user_id, organization_id, name, role)
 values ('<din-auth-user-id>', '<org-id-fra-ovenfor>', 'Thomas Sunke', 'super_admin');
 ```
 
-### 1.6 Deploy edge functions
+### 1.6 Deploy edge functions — 🔴 IKKE LAVET
 
 Alle edge functions bor i `supabase/functions/` (oprettes næste gang).
 Installer Supabase CLI: `npm i -g supabase`
@@ -181,7 +195,7 @@ Hvornår SMS sendes:
 
 ---
 
-## 4. Netlify (hosting)
+## 4. Netlify (hosting) — 🔴 IKKE LAVET
 
 ☐ **Opret site** på [netlify.com](https://netlify.com) koblet til GitHub-repoet `teambattle1/vvs-flow`
 - Build command: `npm run build`
@@ -198,7 +212,7 @@ Hvornår SMS sendes:
 
 ---
 
-## 5. DNS (Simply.com)
+## 5. DNS (Simply.com) — 🔴 IKKE LAVET
 
 ☐ **Log ind** på [simply.com](https://simply.com) → eventday.dk → DNS
 
@@ -213,21 +227,14 @@ Efter 5-15 min er VVS FLOW live på **https://vvs.eventday.dk**.
 
 ---
 
-## 6. GitHub
+## 6. GitHub — 🟢 DONE
 
-☐ **Repo er allerede oprettet**: `teambattle1/VVS` (tomt, opsat som origin)
-
-☐ **Første push** (efter din eksplicitte accept):
-
-```bash
-git push -u origin master
-# eller hvis branch skal hedde main:
-git branch -M main && git push -u origin main
-```
+☑️ Repo: [Teambattle1/VVS](https://github.com/Teambattle1/VVS)
+☑️ Master branch pushed med 8 commits (Fase 1-8 + Supabase Auth wiring)
 
 ---
 
-## 7. Grossist-integrationer (Fase 8)
+## 7. Grossist-integrationer (Fase 8) — 🔴 IKKE LAVET
 
 ### 7.1 Sanistål
 
@@ -243,7 +250,7 @@ git branch -M main && git push -u origin main
 
 ---
 
-## 8. Fakturering (Fase 8)
+## 8. Fakturering (Fase 8) — 🔴 IKKE LAVET
 
 ### 8.1 e-conomic
 
@@ -262,7 +269,7 @@ git branch -M main && git push -u origin main
 
 ---
 
-## 9. Betaling (Stripe — for VVS FLOW selv)
+## 9. Betaling (Stripe — for VVS FLOW selv) — 🔴 IKKE LAVET
 
 ☐ **Opret Stripe-konto** på [stripe.com](https://stripe.com)
 
@@ -279,7 +286,7 @@ git branch -M main && git push -u origin main
 
 ---
 
-## 10. MitID signatur (Fase 8)
+## 10. MitID signatur (Fase 8) — 🔴 IKKE LAVET
 
 ☐ **Ansøg om MitID Erhverv** gennem [mitid-erhverv.dk](https://www.mitid-erhverv.dk/)
 - Kræver CVR og opretter-underskriver
@@ -291,7 +298,7 @@ git branch -M main && git push -u origin main
 
 ---
 
-## 11. Observability (anbefalet senere)
+## 11. Observability (anbefalet senere) — 🔴 IKKE LAVET
 
 ☐ **Sentry** til error tracking:
 - Opret projekt på sentry.io
@@ -302,7 +309,7 @@ git branch -M main && git push -u origin main
 
 ---
 
-## 12. Supabase Realtime aktivering
+## 12. Supabase Realtime aktivering — 🟡 VENTER
 
 📄 Realtime-subscription scaffold er klar i [src/hooks/useRealtime.js](src/hooks/useRealtime.js) og bruges fra:
 - [src/pages/JobDetail.jsx](src/pages/JobDetail.jsx) — montøren ser live opdateringer
