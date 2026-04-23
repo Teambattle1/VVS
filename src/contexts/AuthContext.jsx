@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 import { hasSupabase, supabase } from '../lib/supabase.js'
+import { logAuthEvent } from '../lib/authEvents.js'
 
 const AuthContext = createContext(null)
 
@@ -25,13 +26,27 @@ export function AuthProvider({ children }) {
         const { data } = await supabase.auth.getSession()
         if (!mounted) return
         if (data.session?.user) {
-          setUser(userFromSupabase(data.session.user))
+          const u = await enrichUserWithProfile(data.session.user)
+          setUser(u)
         }
         setLoading(false)
 
         // Abonnér på auth-state changes
-        const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
-          setUser(session?.user ? userFromSupabase(session.user) : null)
+        const { data: sub } = supabase.auth.onAuthStateChange(async (event, session) => {
+          if (session?.user) {
+            const u = await enrichUserWithProfile(session.user)
+            setUser(u)
+            if (event === 'SIGNED_IN') {
+              logAuthEvent({ type: 'login', userId: u.id, userEmail: u.email, userName: u.name })
+            }
+          } else {
+            setUser((prev) => {
+              if (prev && event === 'SIGNED_OUT') {
+                logAuthEvent({ type: 'logout', userId: prev.id, userEmail: prev.email, userName: prev.name })
+              }
+              return null
+            })
+          }
         })
         return () => sub.subscription.unsubscribe()
       } else {
@@ -70,8 +85,9 @@ export function AuthProvider({ children }) {
         }
         throw new Error(error.message)
       }
-      const next = userFromSupabase(data.user)
+      const next = await enrichUserWithProfile(data.user)
       setUser(next)
+      logAuthEvent({ type: 'login', userId: next.id, userEmail: next.email, userName: next.name })
       return next
     }
 
@@ -80,10 +96,14 @@ export function AuthProvider({ children }) {
     const next = { ...MOCK_USER, email }
     setUser(next)
     localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
+    logAuthEvent({ type: 'login', userId: next.id, userEmail: next.email, userName: next.name })
     return next
   }
 
   async function signOut() {
+    if (user) {
+      logAuthEvent({ type: 'logout', userId: user.id, userEmail: user.email, userName: user.name })
+    }
     if (hasSupabase) {
       await supabase.auth.signOut()
     }
@@ -105,6 +125,31 @@ function userFromSupabase(authUser) {
     name: authUser.user_metadata?.name || authUser.email?.split('@')[0] || 'Bruger',
     role: authUser.user_metadata?.role || 'montor',
   }
+}
+
+// Beriger auth-user med data fra vvs_users-tabellen (navn + rolle)
+// saa UI viser det rigtige navn i stedet for user_metadata eller email-prefix.
+async function enrichUserWithProfile(authUser) {
+  const base = userFromSupabase(authUser)
+  if (!hasSupabase) return base
+  try {
+    const { data } = await supabase
+      .from('vvs_users')
+      .select('name, role')
+      .eq('user_id', authUser.id)
+      .eq('active', true)
+      .maybeSingle()
+    if (data) {
+      return {
+        ...base,
+        name: data.name || base.name,
+        role: data.role || base.role,
+      }
+    }
+  } catch {
+    /* ignorer - fallback til base */
+  }
+  return base
 }
 
 export function useAuth() {

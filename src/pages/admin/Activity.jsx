@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   Activity,
@@ -9,9 +9,12 @@ import {
   ToggleRight,
   ChevronRight,
   Filter,
+  LogIn,
+  LogOut,
 } from 'lucide-react'
 import clsx from 'clsx'
 import { useJobs } from '../../contexts/JobsContext.jsx'
+import { getAuthEvents } from '../../lib/authEvents.js'
 
 const ACTION_META = {
   comment:     { icon: MessageSquare, color: 'bg-sky-50 text-sky-600',         label: 'Kommentar' },
@@ -19,10 +22,13 @@ const ACTION_META = {
   reject:      { icon: XCircle,       color: 'bg-rose-50 text-rose-600',       label: 'Afvist' },
   toggle_item: { icon: ToggleRight,   color: 'bg-amber-50 text-amber-600',     label: 'Ændret valg' },
   sign_offer:  { icon: PenLine,       color: 'bg-emerald-50 text-emerald-600', label: 'Underskrevet' },
+  login:       { icon: LogIn,         color: 'bg-violet-50 text-violet-600',   label: 'Login' },
+  logout:      { icon: LogOut,        color: 'bg-slate-100 text-slate-600',    label: 'Logud' },
 }
 
 const FILTERS = [
   { value: 'all', label: 'Alle' },
+  { value: 'login', label: 'Logins' },
   { value: 'sign_offer', label: 'Underskrifter' },
   { value: 'approve', label: 'Godkendte' },
   { value: 'reject', label: 'Afviste' },
@@ -33,18 +39,53 @@ const FILTERS = [
 export default function AdminActivity() {
   const { jobs } = useJobs()
   const [filter, setFilter] = useState('all')
+  const [authEvents, setAuthEvents] = useState([])
+
+  useEffect(() => {
+    setAuthEvents(getAuthEvents())
+    // Re-read ved focus saa nye logins vises uden fuld refresh
+    function onFocus() {
+      setAuthEvents(getAuthEvents())
+    }
+    window.addEventListener('focus', onFocus)
+    return () => window.removeEventListener('focus', onFocus)
+  }, [])
 
   const feed = useMemo(() => {
     const all = []
+
+    // Job-handlinger fra kunder
     jobs.forEach((job) => {
       ;(job.actions || []).forEach((action) => {
-        all.push({ ...action, job })
+        all.push({
+          source: 'job',
+          id: action.id,
+          action_type: action.action_type,
+          actor_name: action.actor_name,
+          message: action.message,
+          created_at: action.created_at,
+          job,
+        })
       })
     })
+
+    // Login/logout fra localStorage
+    authEvents.forEach((e) => {
+      all.push({
+        source: 'auth',
+        id: e.id,
+        action_type: e.type, // 'login' | 'logout'
+        actor_name: e.user_name,
+        message: e.type === 'login' ? 'Loggede ind' : 'Loggede ud',
+        created_at: e.timestamp,
+        actor_email: e.user_email,
+      })
+    })
+
     const sorted = all.sort((a, b) => (a.created_at < b.created_at ? 1 : -1))
     if (filter === 'all') return sorted
     return sorted.filter((a) => a.action_type === filter)
-  }, [jobs, filter])
+  }, [jobs, authEvents, filter])
 
   return (
     <div className="space-y-4">
@@ -54,7 +95,7 @@ export default function AdminActivity() {
           Aktivitetslog
         </h1>
         <p className="text-sm text-slate-500">
-          Alle kunde-handlinger på tværs af jobs · {feed.length} aktiviteter
+          Kunde-handlinger + bruger-logins · {feed.length} aktiviteter
         </p>
       </header>
 
@@ -89,11 +130,17 @@ export default function AdminActivity() {
           {feed.map((a) => {
             const meta = ACTION_META[a.action_type] || ACTION_META.comment
             const Icon = meta.icon
+            const isJob = a.source === 'job'
+            const Wrapper = isJob ? Link : 'div'
+            const wrapperProps = isJob ? { to: `/jobs/${a.job.id}` } : {}
             return (
               <li key={a.id}>
-                <Link
-                  to={`/jobs/${a.job.id}`}
-                  className="px-4 py-3 flex items-start gap-3 hover:bg-slate-50 transition-colors"
+                <Wrapper
+                  {...wrapperProps}
+                  className={clsx(
+                    'px-4 py-3 flex items-start gap-3 transition-colors',
+                    isJob && 'hover:bg-slate-50'
+                  )}
                 >
                   <div
                     className={clsx(
@@ -109,15 +156,26 @@ export default function AdminActivity() {
                       <span className="text-slate-600">{a.message}</span>
                     </div>
                     <div className="text-xs text-slate-500 mt-0.5 flex flex-wrap gap-2">
-                      <span className="font-semibold">{a.job.job_number}</span>
-                      <span>·</span>
-                      <span>{a.job.customer?.name}</span>
+                      {isJob ? (
+                        <>
+                          <span className="font-semibold">{a.job.job_number}</span>
+                          <span>·</span>
+                          <span>{a.job.customer?.name}</span>
+                        </>
+                      ) : (
+                        a.actor_email && <span>{a.actor_email}</span>
+                      )}
                       <span>·</span>
                       <span>{formatTime(a.created_at)}</span>
                     </div>
                   </div>
-                  <ChevronRight className="w-4 h-4 text-slate-300 flex-shrink-0 self-center" strokeWidth={2} />
-                </Link>
+                  {isJob && (
+                    <ChevronRight
+                      className="w-4 h-4 text-slate-300 flex-shrink-0 self-center"
+                      strokeWidth={2}
+                    />
+                  )}
+                </Wrapper>
               </li>
             )
           })}
@@ -138,6 +196,7 @@ function formatTime(iso) {
     return d.toLocaleString('da-DK', {
       day: '2-digit',
       month: '2-digit',
+      year: 'numeric',
       hour: '2-digit',
       minute: '2-digit',
     })
