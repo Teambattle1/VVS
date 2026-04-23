@@ -11,6 +11,7 @@ import {
   Undo2,
   X,
   ImagePlus,
+  BookmarkPlus,
 } from 'lucide-react'
 import clsx from 'clsx'
 import { useJobs } from '../contexts/JobsContext.jsx'
