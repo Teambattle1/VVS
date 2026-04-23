@@ -1,0 +1,184 @@
+- generic [ref=e24]:
+  - banner [ref=e25]:
+    - generic [ref=e26]:
+      - button "Tilbage til jobs" [ref=e27] [cursor=pointer]:
+        - img [ref=e28]
+      - img "Fjordens VVS Teknik" [ref=e31]
+      - generic [ref=e32]:
+        - generic [ref=e33]: Fjordens VVS Teknik
+        - generic [ref=e34]: Administration
+      - generic [ref=e35]:
+        - generic "thomas@teambattle.dk" [ref=e36]: TS
+        - generic [ref=e37]:
+          - generic [ref=e38]: Thomas Sunke
+          - generic [ref=e39]: thomas@teambattle.dk
+      - button "Log ud" [ref=e40] [cursor=pointer]:
+        - img [ref=e41]
+  - generic [ref=e44]:
+    - complementary [ref=e45]:
+      - navigation [ref=e46]:
+        - link "Pakke-skabeloner" [ref=e47] [cursor=pointer]:
+          - /url: /admin/packages
+          - img [ref=e48]
+          - text: Pakke-skabeloner
+        - link "Varedatabase" [ref=e52] [cursor=pointer]:
+          - /url: /admin/items
+          - img [ref=e53]
+          - text: Varedatabase
+        - link "Aktivitetslog" [ref=e63] [cursor=pointer]:
+          - /url: /admin/activity
+          - img [ref=e64]
+          - text: Aktivitetslog
+        - link "Integrationer" [ref=e66] [cursor=pointer]:
+          - /url: /admin/integrations
+          - img [ref=e67]
+          - text: Integrationer
+        - link "Indstillinger" [ref=e69] [cursor=pointer]:
+          - /url: /admin/settings
+          - img [ref=e70]
+          - text: Indstillinger
+      - generic [ref=e73]:
+        - img [ref=e74]
+        - text: Ændringer gælder for hele din organisation.
+    - generic [ref=e78]:
+      - generic [ref=e79]:
+        - generic [ref=e80]:
+          - heading "Indstillinger" [level=1] [ref=e81]
+          - paragraph [ref=e82]: Auto-gemmes løbende · klik "Gem alle" for at gemme alle ændringer straks
+        - generic [ref=e83]:
+          - generic [ref=e84]: Auto-save aktiv
+          - button "Gem alle" [disabled] [ref=e85]:
+            - img [ref=e86]
+            - text: Gem alle
+      - generic [ref=e90]:
+        - heading "Organisation" [level=2] [ref=e91]:
+          - img [ref=e92]
+          - text: Organisation
+        - generic [ref=e96]:
+          - generic [ref=e97]:
+            - generic [ref=e98]: Navn
+            - textbox [ref=e99]: Fjordens VVS Teknik
+          - generic [ref=e101]:
+            - generic [ref=e102]: CVR
+            - generic [ref=e103]:
+              - textbox "12345678" [ref=e105]
+              - button "Slå op" [ref=e106] [cursor=pointer]:
+                - img [ref=e107]
+                - text: Slå op
+            - paragraph [ref=e110]: Indtast 8-cifret CVR-nummer og klik "Slå op" for at hente adresse + kontakt automatisk.
+          - generic [ref=e111]:
+            - generic [ref=e112]: Adresse
+            - textbox [ref=e113]
+          - generic [ref=e114]:
+            - generic [ref=e115]:
+              - generic [ref=e116]: Kontakt-email
+              - textbox [ref=e117]
+            - generic [ref=e118]:
+              - generic [ref=e119]: Kontakt-telefon
+              - textbox [ref=e120]
+      - generic [ref=e121]:
+        - heading "Branding" [level=2] [ref=e122]:
+          - img [ref=e123]
+          - text: Branding
+        - generic [ref=e129]:
+          - generic [ref=e130]:
+            - generic [ref=e131]: Logo
+            - generic [ref=e132]:
+              - img "Logo" [ref=e134]
+              - button "Skift logo" [ref=e135] [cursor=pointer]:
+                - img [ref=e136]
+                - text: Skift logo
+              - button "Fjern" [ref=e140] [cursor=pointer]:
+                - img [ref=e141]
+                - text: Fjern
+          - generic [ref=e144]:
+            - generic [ref=e145]:
+              - generic [ref=e146]: Primær farve
+              - generic [ref=e147]:
+                - textbox [ref=e149] [cursor=pointer]: "#0ea5e9"
+                - textbox [ref=e150]: "#0EA5E9"
+              - generic [ref=e151]:
+                - button "#0EA5E9" [ref=e152] [cursor=pointer]
+                - button "#DC2626" [ref=e153] [cursor=pointer]
+                - button "#059669" [ref=e154] [cursor=pointer]
+                - button "#7C3AED" [ref=e155] [cursor=pointer]
+                - button "#EA580C" [ref=e156] [cursor=pointer]
+                - button "#0F172A" [ref=e157] [cursor=pointer]
+            - generic [ref=e158]:
+              - generic [ref=e159]: Accent-farve
+              - generic [ref=e160]:
+                - textbox [ref=e162] [cursor=pointer]: "#2fc945"
+                - textbox [ref=e163]: "#2fc945"
+              - generic [ref=e164]:
+                - button "#F59E0B" [ref=e165] [cursor=pointer]
+                - button "#EC4899" [ref=e166] [cursor=pointer]
+                - button "#06B6D4" [ref=e167] [cursor=pointer]
+                - button "#84CC16" [ref=e168] [cursor=pointer]
+                - button "#6366F1" [ref=e169] [cursor=pointer]
+                - button "#F43F5E" [ref=e170] [cursor=pointer]
+      - generic [ref=e171]:
+        - heading "CREW — team & montører" [level=2] [ref=e172]:
+          - img [ref=e173]
+          - text: CREW — team & montører
+        - generic [ref=e178]:
+          - generic [ref=e179]:
+            - paragraph [ref=e180]: 5 medlemmer · 5 aktive
+            - generic [ref=e181]:
+              - button "Tilføj demo-montører" [ref=e182] [cursor=pointer]:
+                - img [ref=e183]
+                - text: Tilføj demo-montører
+              - button "Fjern demo" [ref=e212] [cursor=pointer]:
+                - img [ref=e213]
+                - text: Fjern demo
+              - button "Tilføj bruger" [ref=e185] [cursor=pointer]:
+                - img [ref=e186]
+                - text: Tilføj bruger
+          - paragraph [ref=e187]:
+            - text: Klik på en bruger for at redigere. Standard-kode for alle nye brugere er
+            - code [ref=e188]: "1234"
+            - text: .
+          - list [ref=e189]:
+            - listitem [ref=e216] [cursor=pointer]:
+              - img [ref=e218]
+              - generic [ref=e221]:
+                - generic [ref=e222]: "[DEMO] Jens Pedersen"
+                - generic [ref=e223]: jens@demo-vvs.dk · Montør
+              - button "Fjern" [ref=e224]:
+                - img [ref=e225]
+            - listitem [ref=e228] [cursor=pointer]:
+              - img [ref=e230]
+              - generic [ref=e233]:
+                - generic [ref=e234]: "[DEMO] Mikkel Andersen"
+                - generic [ref=e235]: mikkel@demo-vvs.dk · Montør
+              - button "Fjern" [ref=e236]:
+                - img [ref=e237]
+            - listitem [ref=e240] [cursor=pointer]:
+              - img [ref=e242]
+              - generic [ref=e245]:
+                - generic [ref=e246]: "[DEMO] Lars Hansen"
+                - generic [ref=e247]: lars@demo-vvs.dk · Montør
+              - button "Fjern" [ref=e248]:
+                - img [ref=e249]
+            - listitem [ref=e252] [cursor=pointer]:
+              - img [ref=e254]
+              - generic [ref=e257]:
+                - generic [ref=e258]: "[DEMO] Søren Nielsen"
+                - generic [ref=e259]: soren@demo-vvs.dk · Montør
+              - button "Fjern" [ref=e260]:
+                - img [ref=e261]
+            - listitem [ref=e190] [cursor=pointer]:
+              - img [ref=e192]
+              - generic [ref=e195]:
+                - generic [ref=e196]: Thomas Sunke
+                - generic [ref=e197]: · super_admin
+              - button "Fjern" [ref=e198]:
+                - img [ref=e199]
+      - generic [ref=e202]:
+        - heading "Standard-priser" [level=2] [ref=e203]
+        - generic [ref=e205]:
+          - generic [ref=e206]:
+            - generic [ref=e207]: Timeløn (kr, ekskl. moms)
+            - spinbutton [ref=e208]: "650"
+          - generic [ref=e209]:
+            - generic [ref=e210]: Standard markup på varer (%)
+            - spinbutton [ref=e211]: "25"

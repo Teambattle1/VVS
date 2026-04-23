@@ -90,14 +90,25 @@ export function OrgProvider({ children }) {
 
       if (hasSupabase) {
         try {
-          const { data: profile, error: profileError } = await supabase
-            .from('vvs_users')
-            .select('organization_id, name, role')
-            .eq('user_id', user.id)
-            .eq('active', true)
-            .maybeSingle()
-
-          if (profileError) throw profileError
+          // Demo-brugere (uden auth.users) har organization_id direkte paa user-objektet
+          // fra tryDemoTeamLogin — brug den uden at query vvs_users via user_id.
+          let profile = null
+          if (user.organization_id) {
+            profile = {
+              organization_id: user.organization_id,
+              name: user.name,
+              role: user.role || 'montor',
+            }
+          } else {
+            const { data, error: profileError } = await supabase
+              .from('vvs_users')
+              .select('organization_id, name, role')
+              .eq('user_id', user.id)
+              .eq('active', true)
+              .maybeSingle()
+            if (profileError) throw profileError
+            profile = data
+          }
 
           if (profile?.organization_id) {
             if (!cancelled) {
