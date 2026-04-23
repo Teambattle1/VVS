@@ -1,1 +1,6 @@
+# Hash'ede assets skal returnere 404 hvis de ikke findes -
+# ellers serverer fallback'en index.html som JS (MIME-fejl)
+/assets/*  /assets/:splat  404
+
+# Alle andre paths fallback'er til index.html for SPA routing
 /*  /index.html  200
