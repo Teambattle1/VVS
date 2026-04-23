@@ -20,17 +20,12 @@ const VAT_OPTIONS = [
   {
     value: 'incl',
     label: 'Inkl. moms',
-    helper: 'Privatkunder ser typisk prisen med moms.',
+    helper: 'Privatkunder ser typisk prisen med moms som hovedbeløb.',
   },
   {
     value: 'excl',
     label: 'Ekskl. moms',
-    helper: 'Erhvervskunder kan trække moms fra.',
-  },
-  {
-    value: 'both',
-    label: 'Begge',
-    helper: 'Vis både med og uden moms i tilbuddet.',
+    helper: 'Erhvervskunder — hovedbeløb er ekskl. moms, inkl. vises i parentes.',
   },
 ]
 

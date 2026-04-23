@@ -11,11 +11,24 @@ export async function lookupCvr(cvr) {
     throw new Error('CVR-nummer skal være 8 cifre')
   }
 
-  // cvrapi.dk kræver User-Agent — browseren sætter den automatisk med app-info
-  const res = await fetch(
-    `${CVR_API}?search=${encodeURIComponent(clean)}&country=dk`,
-    { headers: { Accept: 'application/json' } }
-  )
+  // 10 sekunders timeout — cvrapi.dk hænger undertiden uden CORS-svar
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), 10000)
+
+  let res
+  try {
+    res = await fetch(
+      `${CVR_API}?search=${encodeURIComponent(clean)}&country=dk`,
+      { headers: { Accept: 'application/json' }, signal: controller.signal }
+    )
+  } catch (err) {
+    clearTimeout(timeoutId)
+    if (err.name === 'AbortError') {
+      throw new Error('CVR-opslag timeout — prøv igen eller udfyld manuelt')
+    }
+    throw new Error('Kunne ikke nå CVR-tjenesten (netværksfejl/CORS)')
+  }
+  clearTimeout(timeoutId)
 
   if (res.status === 404) throw new Error('CVR-nummer ikke fundet')
   if (res.status === 429) throw new Error('For mange forespørgsler — prøv igen om lidt')

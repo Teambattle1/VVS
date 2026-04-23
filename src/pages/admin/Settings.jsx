@@ -1,16 +1,40 @@
 import { useEffect, useRef, useState } from 'react'
-import { ImagePlus, Check, X, Palette, Building2, Loader2, Save, Search as SearchIcon } from 'lucide-react'
+import {
+  ImagePlus,
+  Check,
+  X,
+  Palette,
+  Building2,
+  Loader2,
+  Save,
+  Search as SearchIcon,
+  Users as UsersIcon,
+  Plus,
+  Trash2,
+  Shield,
+  User as UserIcon,
+  Sparkles,
+} from 'lucide-react'
 import clsx from 'clsx'
 import { useOrg } from '../../contexts/OrgContext.jsx'
 import { useToast } from '../../contexts/ToastContext.jsx'
 import { lookupCvr } from '../../lib/cvrLookup.js'
+import { ROLES } from '../../lib/mockUsers.js'
+
+const DEMO_MONTORER = [
+  { name: '[DEMO] Mikkel Andersen', email: 'mikkel@demo-vvs.dk', phone: '+45 20 11 22 33', role: 'montor' },
+  { name: '[DEMO] Jens Pedersen',   email: 'jens@demo-vvs.dk',   phone: '+45 22 33 44 55', role: 'montor' },
+  { name: '[DEMO] Søren Nielsen',   email: 'soren@demo-vvs.dk',  phone: '+45 28 80 60 40', role: 'montor' },
+  { name: '[DEMO] Lars Hansen',     email: 'lars@demo-vvs.dk',   phone: '+45 40 50 60 70', role: 'montor' },
+]
 
 const PRESET_COLORS = ['#0EA5E9', '#DC2626', '#059669', '#7C3AED', '#EA580C', '#0F172A']
 const ACCENT_COLORS = ['#F59E0B', '#EC4899', '#06B6D4', '#84CC16', '#6366F1', '#F43F5E']
 
 export default function AdminSettings() {
-  const { org, updateOrg } = useOrg()
+  const { org, updateOrg, team, addTeamMember, removeTeamMember } = useOrg()
   const toast = useToast()
+  const [showAddUser, setShowAddUser] = useState(false)
   const [status, setStatus] = useState('idle') // idle | dirty | saving | saved
   const [hasPending, setHasPending] = useState(false)
   const [cvrLoading, setCvrLoading] = useState(false)
@@ -84,6 +108,29 @@ export default function AdminSettings() {
     }
   }
 
+  function handleSeedDemoCrew() {
+    const existingEmails = new Set((team || []).map((t) => t.email?.toLowerCase()))
+    let added = 0
+    for (const m of DEMO_MONTORER) {
+      if (existingEmails.has(m.email.toLowerCase())) continue
+      addTeamMember(m)
+      added++
+    }
+    if (added === 0) toast.info('Demo-montører findes allerede')
+    else toast.success(`${added} demo-montør${added === 1 ? '' : 'er'} tilføjet`)
+  }
+
+  function handleRemoveDemoCrew() {
+    const demos = (team || []).filter((u) => u.name?.startsWith('[DEMO]'))
+    if (demos.length === 0) {
+      toast.info('Ingen demo-montører at fjerne')
+      return
+    }
+    if (!confirm(`Fjern ${demos.length} demo-montør${demos.length === 1 ? '' : 'er'}?`)) return
+    demos.forEach((u) => removeTeamMember(u.id))
+    toast.success(`${demos.length} demo-montør${demos.length === 1 ? '' : 'er'} fjernet`)
+  }
+
   function handleLogoUpload(e) {
     const file = e.target.files?.[0]
     if (!file) return
@@ -95,10 +142,10 @@ export default function AdminSettings() {
 
   return (
     <div className="space-y-5">
-      <header className="flex items-center justify-between gap-3 flex-wrap sticky top-0 bg-slate-50/95 backdrop-blur py-2 -mt-2 z-10">
+      <header className="flex items-center justify-between gap-3 flex-wrap sticky top-0 bg-slate-50/95 dark:bg-slate-900/95 backdrop-blur py-2 -mt-2 z-10">
         <div>
-          <h1 className="text-xl font-bold text-slate-900">Indstillinger</h1>
-          <p className="text-sm text-slate-500">
+          <h1 className="text-xl font-bold text-slate-900 dark:text-white">Indstillinger</h1>
+          <p className="text-sm text-slate-500 dark:text-slate-300">
             Auto-gemmes løbende · klik &quot;Gem alle&quot; for at gemme alle ændringer straks
           </p>
         </div>
@@ -256,6 +303,92 @@ export default function AdminSettings() {
         </div>
       </Section>
 
+      <Section title="CREW — team & montører" icon={UsersIcon}>
+        <div className="flex items-center justify-between flex-wrap gap-2 -mt-1">
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            {team.length} medlem{team.length === 1 ? '' : 'mer'} · {team.filter((u) => u.active).length} aktive
+          </p>
+          <div className="flex gap-2 flex-wrap">
+            <button
+              type="button"
+              onClick={handleSeedDemoCrew}
+              className="btn-secondary text-xs"
+              title="Tilføj 4 demo-montører (markeret [DEMO])"
+            >
+              <Sparkles className="w-4 h-4 text-amber-500" strokeWidth={2} />
+              Tilføj demo-montører
+            </button>
+            {team.some((u) => u.name?.startsWith('[DEMO]')) && (
+              <button
+                type="button"
+                onClick={handleRemoveDemoCrew}
+                className="btn-secondary text-xs text-rose-600 border-rose-200 hover:bg-rose-50"
+              >
+                <Trash2 className="w-4 h-4" strokeWidth={2} />
+                Fjern demo
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => setShowAddUser(true)}
+              className="btn-primary text-xs"
+            >
+              <Plus className="w-4 h-4 text-white" strokeWidth={2.25} />
+              Tilføj bruger
+            </button>
+          </div>
+        </div>
+
+        <ul className="grid grid-cols-1 md:grid-cols-2 gap-2">
+          {team.map((u) => (
+            <li
+              key={u.id}
+              className={clsx(
+                'rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-3 flex items-center gap-3',
+                !u.active && 'opacity-60'
+              )}
+            >
+              <div className="w-10 h-10 rounded-2xl bg-sky-50 dark:bg-sky-900/40 text-sky-600 dark:text-sky-300 flex items-center justify-center flex-shrink-0">
+                {u.role === 'org_admin' ? (
+                  <Shield className="w-5 h-5" strokeWidth={2} />
+                ) : (
+                  <UserIcon className="w-5 h-5" strokeWidth={2} />
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-semibold text-slate-900 dark:text-white truncate">
+                  {u.name}
+                </div>
+                <div className="text-xs text-slate-500 dark:text-slate-400 truncate">
+                  {u.email} · {ROLES.find((r) => r.value === u.role)?.label || u.role}
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  if (confirm(`Fjern ${u.name}?`)) removeTeamMember(u.id)
+                }}
+                className="w-9 h-9 rounded-xl text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/30 flex items-center justify-center flex-shrink-0"
+                aria-label="Fjern"
+              >
+                <Trash2 className="w-4 h-4" strokeWidth={2} />
+              </button>
+            </li>
+          ))}
+        </ul>
+      </Section>
+
+      {showAddUser && (
+        <AddUserInlineDialog
+          onClose={() => setShowAddUser(false)}
+          onSave={(data) => {
+            addTeamMember(data)
+            toast.success(`${data.name} tilføjet`)
+            setShowAddUser(false)
+          }}
+        />
+      )}
+
       <Section title="Standard-priser">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <Field label="Timeløn (kr, ekskl. moms)">
@@ -405,6 +538,83 @@ function Field({ label, children }) {
     <div>
       <div className="label">{label}</div>
       {children}
+    </div>
+  )
+}
+
+function AddUserInlineDialog({ onClose, onSave }) {
+  const [name, setName] = useState('')
+  const [email, setEmail] = useState('')
+  const [phone, setPhone] = useState('')
+  const [role, setRole] = useState('montor')
+
+  function handleSubmit(e) {
+    e.preventDefault()
+    if (!name.trim() || !email.trim()) return
+    onSave({ name: name.trim(), email: email.trim(), phone: phone.trim(), role, active: true })
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm flex items-end md:items-center justify-center p-0 md:p-6">
+      <form
+        onSubmit={handleSubmit}
+        className="w-full md:max-w-md bg-white dark:bg-slate-800 rounded-t-3xl md:rounded-3xl shadow-xl max-h-[92vh] flex flex-col"
+      >
+        <header className="px-5 py-4 border-b border-slate-100 dark:border-slate-700 flex items-center gap-3">
+          <h2 className="text-lg font-bold text-slate-900 dark:text-white flex-1">
+            Tilføj bruger
+          </h2>
+          <button
+            type="button"
+            onClick={onClose}
+            className="w-10 h-10 rounded-2xl text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center justify-center"
+            aria-label="Luk"
+          >
+            <X className="w-5 h-5" strokeWidth={2} />
+          </button>
+        </header>
+        <div className="p-5 space-y-4 overflow-y-auto">
+          <div>
+            <label className="label">Navn</label>
+            <input type="text" className="input" value={name} onChange={(e) => setName(e.target.value)} autoFocus required />
+          </div>
+          <div>
+            <label className="label">Email</label>
+            <input type="email" className="input" value={email} onChange={(e) => setEmail(e.target.value)} required />
+          </div>
+          <div>
+            <label className="label">Telefon</label>
+            <input type="tel" className="input" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+45 20 12 34 56" />
+          </div>
+          <div>
+            <label className="label">Rolle</label>
+            <div className="grid grid-cols-2 gap-2">
+              {ROLES.map((r) => (
+                <button
+                  key={r.value}
+                  type="button"
+                  onClick={() => setRole(r.value)}
+                  className={clsx(
+                    'rounded-2xl border-2 px-3 py-2.5 text-sm font-semibold transition-colors',
+                    role === r.value
+                      ? 'border-sky-500 bg-sky-50 dark:bg-sky-900/40 text-sky-700 dark:text-sky-200'
+                      : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:border-slate-300'
+                  )}
+                >
+                  {r.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+        <footer className="p-4 border-t border-slate-100 dark:border-slate-700 flex gap-2">
+          <button type="button" onClick={onClose} className="btn-secondary flex-1">Annuller</button>
+          <button type="submit" className="btn-primary flex-1">
+            <Check className="w-5 h-5 text-white" strokeWidth={2.25} />
+            Tilføj
+          </button>
+        </footer>
+      </form>
     </div>
   )
 }

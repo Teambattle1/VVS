@@ -81,7 +81,7 @@ export default function CustomerHistory() {
               const status = STATUS[j.status] || STATUS.sent
               const StatusIcon = status.icon
               const total = jobTotal(j)
-              const showIncl = j.vat_handling === 'incl' || j.vat_handling === 'both'
+              const showIncl = j.vat_handling !== 'excl'
               return (
                 <li key={j.id}>
                   <Link

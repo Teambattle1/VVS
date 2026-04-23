@@ -39,8 +39,8 @@ export default function CustomerPackageSheet({
   const total = packageTotal(pkg)
   const isApproved = pkg.status === 'approved_by_customer'
   const isRejected = pkg.status === 'rejected_by_customer'
-  const showIncl = job.vat_handling === 'incl' || job.vat_handling === 'both'
-  const showExcl = job.vat_handling === 'excl' || job.vat_handling === 'both'
+  const showIncl = job.vat_handling !== 'excl'
+  const showExcl = job.vat_handling === 'excl'
 
   const comments = (job.actions || []).filter(
     (a) => a.action_type === 'comment' && a.room_package_id === pkg.id

@@ -19,15 +19,12 @@ export function formatDKK(amount, { withSymbol = true } = {}) {
 
 export function priceLabel(excl, vatHandling) {
   const incl = toInclVat(excl)
-  switch (vatHandling) {
-    case 'incl':
-      return formatDKK(incl) + ' inkl. moms'
-    case 'excl':
-      return formatDKK(excl) + ' ekskl. moms'
-    case 'both':
-    default:
-      return `${formatDKK(excl)} ekskl. / ${formatDKK(incl)} inkl. moms`
+  // 'both' er deprecated - fallback til 'incl'
+  const mode = vatHandling === 'excl' ? 'excl' : 'incl'
+  if (mode === 'excl') {
+    return `${formatDKK(excl)} ekskl. moms (${formatDKK(incl)} inkl.)`
   }
+  return formatDKK(incl) + ' inkl. moms'
 }
 
 // ============================================

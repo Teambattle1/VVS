@@ -3,7 +3,6 @@ import clsx from 'clsx'
 const OPTIONS = [
   { value: 'incl', label: 'Inkl.' },
   { value: 'excl', label: 'Ekskl.' },
-  { value: 'both', label: 'Begge' },
 ]
 
 export default function VatToggle({ value, onChange, size = 'md' }) {

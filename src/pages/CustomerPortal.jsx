@@ -86,8 +86,9 @@ export default function CustomerPortal() {
   const isLocked = job.status === 'approved' || job.status === 'rejected'
   const isApproved = job.status === 'approved'
   const isRejected = job.status === 'rejected'
-  const showIncl = job.vat_handling === 'incl' || job.vat_handling === 'both'
-  const showExcl = job.vat_handling === 'excl' || job.vat_handling === 'both'
+  const primaryIncl = job.vat_handling !== 'excl' // default incl hvis ikke eksplicit excl
+  const showIncl = primaryIncl
+  const showExcl = !primaryIncl
 
   const offerStatus = isApproved
     ? { label: 'Godkendt', color: 'bg-emerald-100 text-emerald-800' }
@@ -168,11 +169,9 @@ export default function CustomerPortal() {
                 </div>
               )}
               <div className="text-xs text-slate-500">
-                {job.vat_handling === 'both'
-                  ? `inkl. moms · ${formatDKK(total)} ekskl.`
-                  : job.vat_handling === 'incl'
+                {primaryIncl
                   ? 'inkl. moms'
-                  : 'ekskl. moms'}
+                  : `ekskl. moms (${formatDKK(toInclVat(total))} inkl.)`}
               </div>
               {totalPackages > 0 && (
                 <div className="text-xs text-slate-500 mt-1">
@@ -375,7 +374,7 @@ function RoomSection({ job, room, onPackageClick, readOnly }) {
   const [selectedId, setSelectedId] = useState(null)
   const roomTypeLabel = ROOM_TYPES.find((t) => t.value === room.room_type)?.label || room.room_type
   const total = roomTotal(room)
-  const showIncl = job.vat_handling === 'incl' || job.vat_handling === 'both'
+  const showIncl = job.vat_handling !== 'excl'
 
   return (
     <article className="card p-5">
@@ -436,7 +435,7 @@ function RoomSection({ job, room, onPackageClick, readOnly }) {
 
 function CustomerPackageRow({ pkg, vatHandling, onClick }) {
   const total = packageTotal(pkg)
-  const showIncl = vatHandling === 'incl' || vatHandling === 'both'
+  const showIncl = vatHandling !== 'excl'
   const isApproved = pkg.status === 'approved_by_customer'
   const isRejected = pkg.status === 'rejected_by_customer'
   return (

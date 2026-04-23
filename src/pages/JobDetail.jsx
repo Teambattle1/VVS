@@ -13,6 +13,10 @@ import {
   Home,
   FileDown,
   Eye,
+  CheckCircle2,
+  XCircle,
+  Clock,
+  FileText,
 } from 'lucide-react'
 import clsx from 'clsx'
 import { useJobs } from '../contexts/JobsContext.jsx'
@@ -179,6 +183,54 @@ export default function JobDetail() {
               size="sm"
             />
           </div>
+
+          <div className="mt-3 pt-3 border-t border-slate-100">
+            <div className="text-xs font-semibold text-slate-500 mb-2">Status (sæt manuelt):</div>
+            <div className="flex flex-wrap gap-2">
+              <StatusChip
+                active={job.status === 'draft'}
+                onClick={() => updateJob(job.id, { status: 'draft' })}
+                icon={FileText}
+                label="Kladde"
+                activeCls="bg-rose-500 text-white border-rose-500"
+              />
+              <StatusChip
+                active={job.status === 'sent'}
+                onClick={() => updateJob(job.id, { status: 'sent' })}
+                icon={Send}
+                label="Sendt"
+                activeCls="bg-amber-500 text-white border-amber-500"
+              />
+              <StatusChip
+                active={job.status === 'approved'}
+                onClick={() => updateJob(job.id, { status: 'approved' })}
+                icon={CheckCircle2}
+                label="Godkendt"
+                activeCls="bg-emerald-500 text-white border-emerald-500"
+              />
+              <StatusChip
+                active={job.status === 'rejected'}
+                onClick={() => updateJob(job.id, { status: 'rejected' })}
+                icon={XCircle}
+                label="Afvist"
+                activeCls="bg-sky-500 text-white border-sky-500"
+              />
+              <StatusChip
+                active={job.status === 'in_progress'}
+                onClick={() => updateJob(job.id, { status: 'in_progress' })}
+                icon={Clock}
+                label="I gang"
+                activeCls="bg-indigo-500 text-white border-indigo-500"
+              />
+              <StatusChip
+                active={job.status === 'done'}
+                onClick={() => updateJob(job.id, { status: 'done' })}
+                icon={CheckCircle2}
+                label="Færdig"
+                activeCls="bg-slate-700 text-white border-slate-700"
+              />
+            </div>
+          </div>
         </section>
 
         <section>
@@ -276,6 +328,24 @@ export default function JobDetail() {
         />
       )}
     </div>
+  )
+}
+
+function StatusChip({ active, onClick, icon: Icon, label, activeCls }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={clsx(
+        'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border-2 text-xs font-semibold transition',
+        active
+          ? activeCls
+          : 'bg-white border-slate-200 text-slate-600 hover:border-slate-400 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-200'
+      )}
+    >
+      <Icon className="w-3.5 h-3.5" strokeWidth={2.25} />
+      {label}
+    </button>
   )
 }
 
