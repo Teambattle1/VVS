@@ -25,6 +25,7 @@ import { priceLabel } from '../lib/pricing.js'
 import OrgLogo from '../components/OrgLogo.jsx'
 import MontorTour from '../components/MontorTour.jsx'
 import ThemeToggle from '../components/ThemeToggle.jsx'
+import VersionBadge from '../components/VersionBadge.jsx'
 
 const STATUS_FILTERS = [
   { value: 'all', label: 'Alle', activeClass: 'bg-slate-900 text-white border-slate-900' },
@@ -82,6 +83,7 @@ export default function Dashboard() {
               <span className="text-[10px] text-slate-500 truncate">{user?.email}</span>
             </div>
           </div>
+          <VersionBadge className="hidden sm:inline-flex" />
           <ThemeToggle />
           <Link
             to="/super"

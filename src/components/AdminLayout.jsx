@@ -15,6 +15,7 @@ import { useAuth } from '../contexts/AuthContext.jsx'
 import { useOrg } from '../contexts/OrgContext.jsx'
 import OrgLogo from './OrgLogo.jsx'
 import ThemeToggle from './ThemeToggle.jsx'
+import VersionBadge from './VersionBadge.jsx'
 
 const NAV = [
   { to: '/admin/packages', label: 'Pakke-skabeloner', icon: Package },

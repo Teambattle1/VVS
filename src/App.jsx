@@ -8,6 +8,7 @@ import { ThemeProvider } from './contexts/ThemeContext.jsx'
 import AppRoutes from './routes.jsx'
 import SplashScreen from './components/SplashScreen.jsx'
 import ErrorBoundary from './components/ErrorBoundary.jsx'
+import WhatsNewGate from './components/WhatsNewGate.jsx'
 
 export default function App() {
   const [splashDone, setSplashDone] = useState(false)
@@ -22,6 +23,7 @@ export default function App() {
                 <JobsProvider>
                   <AppRoutes />
                   {!splashDone && <SplashScreen onDone={() => setSplashDone(true)} />}
+                  {splashDone && <WhatsNewGate />}
                 </JobsProvider>
               </OrgProvider>
             </CustomerAuthProvider>
