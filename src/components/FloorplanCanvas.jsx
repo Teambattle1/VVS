@@ -34,12 +34,29 @@ export default function FloorplanCanvas({
       const { width } = wrapRef.current.getBoundingClientRect()
       const ratio = room.length_cm / room.width_cm
       const height = Math.min(Math.max(width * ratio, 280), 620)
-      setSize({ width, height })
+      // Undgå ResizeObserver-loop: skip hvis aendringen er under 1px
+      setSize((prev) => {
+        if (Math.abs(prev.width - width) < 1 && Math.abs(prev.height - height) < 1) {
+          return prev
+        }
+        return { width, height }
+      })
     }
     measure()
-    const ro = new ResizeObserver(measure)
+    // rAF-throttle saa vi ikke fyrer resize-observer-callback igen indenfor samme frame
+    let rafId = null
+    const ro = new ResizeObserver(() => {
+      if (rafId) return
+      rafId = requestAnimationFrame(() => {
+        rafId = null
+        measure()
+      })
+    })
     if (wrapRef.current) ro.observe(wrapRef.current)
-    return () => ro.disconnect()
+    return () => {
+      ro.disconnect()
+      if (rafId) cancelAnimationFrame(rafId)
+    }
   }, [room.length_cm, room.width_cm])
 
   // Load background image if upload mode
