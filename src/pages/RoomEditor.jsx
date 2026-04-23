@@ -158,8 +158,8 @@ export default function RoomEditor() {
         </div>
       </header>
 
-      <main className="max-w-6xl mx-auto px-4 md:px-6 pt-4 md:pt-6 grid grid-cols-1 md:grid-cols-[1fr_320px] gap-5">
-        <div className="space-y-4">
+      <main className="max-w-6xl mx-auto px-4 md:px-6 pt-4 md:pt-6 grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_320px] gap-5">
+        <div className="space-y-4 min-w-0">
           <div className="card p-3 md:p-4 space-y-3">
             <div className="flex items-center gap-1.5 overflow-x-auto -mx-1 px-1">
               {MODES.map((m) => {
