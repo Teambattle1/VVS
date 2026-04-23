@@ -27,6 +27,7 @@ import VatToggle from '../components/VatToggle.jsx'
 import AddRoomDialog from '../components/AddRoomDialog.jsx'
 import ActivityFeed from '../components/ActivityFeed.jsx'
 import MapThumb from '../components/MapThumb.jsx'
+import ShareDialog from '../components/ShareDialog.jsx'
 
 export default function JobDetail() {
   const { jobId } = useParams()
@@ -35,6 +36,7 @@ export default function JobDetail() {
   const { org } = useOrg()
   const toast = useToast()
   const [showAddRoom, setShowAddRoom] = useState(false)
+  const [showShare, setShowShare] = useState(false)
   const [exporting, setExporting] = useState(false)
 
   // Supabase Realtime scaffold - lyt paa kunde-handlinger
@@ -260,6 +262,17 @@ export default function JobDetail() {
         <AddRoomDialog
           onClose={() => setShowAddRoom(false)}
           onCreate={handleCreateRoom}
+        />
+      )}
+
+      {showShare && (
+        <ShareDialog
+          url={`${window.location.origin}/k/${job.share_token || job.id}`}
+          customerPhone={job.customer.phone}
+          customerName={job.customer.name}
+          jobNumber={job.job_number}
+          orgName={org?.name}
+          onClose={() => setShowShare(false)}
         />
       )}
     </div>

@@ -307,6 +307,7 @@ function PackageMarker({
   onPointerUp,
   onPointerCancel,
 }) {
+  const [hover, setHover] = useState(false)
   const color = pkg.color || DEFAULT_COLOR
   const shape = pkg.shape || 'circle'
   const total = packageTotal(pkg)
@@ -317,17 +318,24 @@ function PackageMarker({
     shape === 'circle' ? 9999 : shape === 'rounded' ? 14 : shape === 'diamond' ? 4 : 0
   const transform = shape === 'diamond' ? 'rotate(45deg)' : undefined
 
+  // Halv-transparent ved hover saa brugeren kan se tegning/grid nedenunder
+  const hoverOpacity = hover && !dragging && !selected ? 0.35 : 1
+
   return (
     <div
       className={clsx(
-        'absolute flex flex-col items-center pointer-events-auto select-none transition-transform',
+        'absolute flex flex-col items-center pointer-events-auto select-none transition-all',
         dragging ? 'cursor-grabbing z-30' : 'cursor-grab z-10',
-        !disabled && !selected && 'hover:scale-105'
+        !disabled && !selected && !hover && 'hover:scale-105'
       )}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      style={{ opacity: hoverOpacity }}
       style={{
         left: `${px}px`,
         top: `${py}px`,
         transform: 'translate(-50%, -50%)',
+        opacity: hoverOpacity,
       }}
       onClick={(e) => {
         e.stopPropagation()
