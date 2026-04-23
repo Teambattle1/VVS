@@ -1,8 +1,11 @@
-import { createContext, useCallback, useContext, useMemo, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { MOCK_JOBS } from '../lib/mockJobs.js'
 import { INITIAL_ITEMS } from '../lib/mockItems.js'
 import { PACKAGE_TEMPLATES } from '../lib/mockTemplates.js'
 import { jobTotal } from '../lib/pricing.js'
+import { hasSupabase } from '../lib/supabase.js'
+import * as repo from '../lib/jobsRepo.js'
+import { useAuth } from './AuthContext.jsx'
 
 const JobsContext = createContext(null)
 
@@ -26,12 +29,9 @@ function genShareToken() {
   return `share-${Math.random().toString(36).slice(2, 10)}-${Date.now().toString(36)}`
 }
 
-// Seed jobs med et par eksempler der allerede har rum/pakker, så Dashboard
-// viser realistiske priser.
+// Mock-seed (bruges KUN hvis Supabase ikke er konfigureret)
 function seedJobs() {
   const base = MOCK_JOBS.map((j) => ({ ...j, rooms: [], actions: [] }))
-
-  // JOB-2026-0001: badeværelse med 3 pakker
   base[0].rooms = [
     {
       id: uid('room'),
@@ -78,61 +78,9 @@ function seedJobs() {
             { id: uid('pi'), item_id: 'i-008', name_snapshot: 'Brusesæt Grohe Tempesta', quantity: 1, unit_price: 890, customer_selected: true },
           ],
         },
-        {
-          id: uid('pkg'),
-          template_id: 't-bath-05',
-          name: 'Håndvask enkelt',
-          lucide_icon: 'Droplet',
-          position_x: 0.5,
-          position_y: 0.75,
-          pricing_model: 'fixed',
-          fixed_price: 1800,
-          hours: 1.5,
-          hourly_rate: null,
-          notes: '',
-          timeline_text: '',
-          status: 'draft',
-          items: [
-            { id: uid('pi'), item_id: 'i-004', name_snapshot: 'Håndvask Ifö Caruso 55cm', quantity: 1, unit_price: 1690, customer_selected: true },
-            { id: uid('pi'), item_id: 'i-006', name_snapshot: 'Blandingsbatteri Grohe Eurosmart', quantity: 1, unit_price: 1290, customer_selected: true },
-          ],
-        },
       ],
     },
   ]
-
-  // JOB-2026-0003: varmtvandsbeholder
-  base[2].rooms = [
-    {
-      id: uid('room'),
-      name: 'Teknikrum kælder',
-      room_type: 'technical',
-      width_cm: 200,
-      length_cm: 180,
-      floorplan_mode: 'rectangle',
-      packages: [
-        {
-          id: uid('pkg'),
-          template_id: 't-tech-01',
-          name: 'Varmtvandsbeholder',
-          lucide_icon: 'Container',
-          position_x: 0.5,
-          position_y: 0.5,
-          pricing_model: 'package_plus',
-          fixed_price: 8800,
-          hours: 6,
-          hourly_rate: null,
-          notes: 'Aftalt tid til 160L beholder.',
-          timeline_text: '1 dags arbejde',
-          status: 'draft',
-          items: [
-            { id: uid('pi'), item_id: 'i-015', name_snapshot: 'Varmtvandsbeholder 160L Metro', quantity: 1, unit_price: 5890, customer_selected: true },
-          ],
-        },
-      ],
-    },
-  ]
-
   return base.map((j) => ({
     ...j,
     total_price_excl_vat: jobTotal(j),
@@ -141,11 +89,16 @@ function seedJobs() {
 }
 
 export function JobsProvider({ children }) {
-  const [jobs, setJobs] = useState(() => seedJobs())
-  const [items, setItems] = useState(INITIAL_ITEMS)
+  const { user } = useAuth()
+  const [jobs, setJobs] = useState(() => (hasSupabase ? [] : seedJobs()))
+  const [items, setItems] = useState(hasSupabase ? [] : INITIAL_ITEMS)
   const [templates, setTemplates] = useState(() =>
-    PACKAGE_TEMPLATES.map((t) => ({ ...t, active: true }))
+    hasSupabase ? [] : PACKAGE_TEMPLATES.map((t) => ({ ...t, active: true }))
   )
+  const [orgId, setOrgId] = useState(null)
+  const [dbUserId, setDbUserId] = useState(null)
+  const [dbLoading, setDbLoading] = useState(false)
+  const supabaseModeRef = useRef(hasSupabase)
 
   const recomputeJob = useCallback((job) => ({
     ...job,
@@ -154,136 +107,145 @@ export function JobsProvider({ children }) {
     updated_at: new Date().toISOString(),
   }), [])
 
-  function addJob({ title, customer, vatHandling }) {
-    let created
-    setJobs((prev) => {
-      const id = uid('job')
-      const newJob = recomputeJob({
-        id,
-        job_number: nextJobNumber(prev),
-        title: title.trim(),
-        customer: {
-          name: customer.name.trim(),
-          address: customer.address.trim(),
-          customer_type: customer.customer_type,
-        },
-        status: 'draft',
-        vat_handling: vatHandling,
-        rooms: [],
-        actions: [],
-        share_token: genShareToken(),
-        assigned_to: 'Mikkel Montør',
-      })
-      created = newJob
-      return [newJob, ...prev]
-    })
-    return created
-  }
-
   // ============================================
-  // Kunde-aktioner: kommentarer, godkend/afvis,
-  // toggle items. Logger ind i job.actions.
+  // Supabase: load vvs_users profile for at finde org, så data kan hentes
   // ============================================
-  function logAction(jobId, action) {
-    const entry = {
-      id: uid('act'),
-      created_at: new Date().toISOString(),
-      ...action,
+  useEffect(() => {
+    if (!hasSupabase || !user) {
+      setOrgId(null)
+      setDbUserId(null)
+      return
     }
-    setJobs((prev) =>
-      prev.map((j) =>
-        j.id === jobId ? { ...j, actions: [...(j.actions || []), entry] } : j
-      )
-    )
-    return entry
-  }
+    let cancelled = false
+    ;(async () => {
+      try {
+        const { supabase } = await import('../lib/supabase.js')
+        const { data } = await supabase
+          .from('vvs_users')
+          .select('id, organization_id')
+          .eq('user_id', user.id)
+          .eq('active', true)
+          .maybeSingle()
+        if (!cancelled && data) {
+          setOrgId(data.organization_id)
+          setDbUserId(data.id)
+        }
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.warn('[JobsContext] Kunne ikke hente bruger-profil:', err.message)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [user])
 
-  function getJobByShareToken(token) {
-    return jobs.find((j) => j.share_token === token)
-  }
+  // ============================================
+  // Supabase: load jobs/items/templates når org er fundet
+  // ============================================
+  const refresh = useCallback(async () => {
+    if (!hasSupabase || !orgId) return
+    setDbLoading(true)
+    try {
+      const [jobsData, itemsData, templatesData] = await Promise.all([
+        repo.loadJobsForOrg(orgId),
+        repo.loadItemsForOrg(orgId),
+        repo.loadTemplates(orgId),
+      ])
+      setJobs(jobsData.map((j) => ({
+        ...j,
+        total_price_excl_vat: jobTotal(j),
+        rooms_count: j.rooms?.length || 0,
+      })))
+      setItems(itemsData)
+      setTemplates(templatesData)
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.warn('[JobsContext] refresh() fejlede:', err.message)
+    } finally {
+      setDbLoading(false)
+    }
+  }, [orgId])
 
-  function toggleItemSelected(jobId, roomId, pkgId, itemId, selected, customerMeta = {}) {
-    updatePackageItem(jobId, roomId, pkgId, itemId, { customer_selected: selected })
-    const pkg = getPackage(jobId, roomId, pkgId)
-    const it = pkg?.items.find((i) => i.id === itemId)
-    logAction(jobId, {
-      action_type: 'toggle_item',
-      actor_type: 'customer',
-      actor_name: customerMeta.name || 'Kunde',
-      room_package_id: pkgId,
-      package_item_id: itemId,
-      message: `${selected ? 'Tilvalgte' : 'Fravalgte'} ${it?.name_snapshot || 'vare'}`,
-    })
-  }
+  useEffect(() => {
+    if (orgId) refresh()
+  }, [orgId, refresh])
 
-  function addComment(jobId, { roomPackageId = null, message, customerName, customerEmail }) {
-    logAction(jobId, {
-      action_type: 'comment',
-      actor_type: 'customer',
-      actor_name: customerName || 'Kunde',
-      customer_email: customerEmail,
-      room_package_id: roomPackageId,
-      message,
+  // ============================================
+  // JOBS
+  // ============================================
+  function addJob({ title, customer, vatHandling }) {
+    const id = uid('job')
+    const newJob = recomputeJob({
+      id,
+      job_number: nextJobNumber(jobs),
+      title: title.trim(),
+      customer: {
+        name: customer.name.trim(),
+        address: customer.address.trim(),
+        customer_type: customer.customer_type,
+        lat: customer.lat || null,
+        lon: customer.lon || null,
+        zip: customer.zip || null,
+        city: customer.city || null,
+      },
+      status: 'draft',
+      vat_handling: vatHandling,
+      rooms: [],
+      actions: [],
+      share_token: genShareToken(),
+      assigned_to: 'Mikkel Montør',
     })
-  }
+    // Optimistisk local update
+    setJobs((prev) => [newJob, ...prev])
 
-  function approvePackage(jobId, roomId, pkgId, customerName = 'Kunde') {
-    updatePackage(jobId, roomId, pkgId, { status: 'approved_by_customer' })
-    const pkg = getPackage(jobId, roomId, pkgId)
-    logAction(jobId, {
-      action_type: 'approve',
-      actor_type: 'customer',
-      actor_name: customerName,
-      room_package_id: pkgId,
-      message: `Godkendte ${pkg?.name || 'pakke'}`,
-    })
-  }
-
-  function rejectPackage(jobId, roomId, pkgId, { customerName = 'Kunde', reason = '' } = {}) {
-    updatePackage(jobId, roomId, pkgId, { status: 'rejected_by_customer' })
-    const pkg = getPackage(jobId, roomId, pkgId)
-    logAction(jobId, {
-      action_type: 'reject',
-      actor_type: 'customer',
-      actor_name: customerName,
-      room_package_id: pkgId,
-      message: `Afviste ${pkg?.name || 'pakke'}${reason ? `: ${reason}` : ''}`,
-    })
-  }
-
-  function signOffer(jobId, { customerName, customerEmail, signature = null }) {
-    updateJob(jobId, {
-      status: 'approved',
-      signed_at: new Date().toISOString(),
-      signed_by: customerName,
-      signature,
-    })
-    logAction(jobId, {
-      action_type: 'sign_offer',
-      actor_type: 'customer',
-      actor_name: customerName,
-      customer_email: customerEmail,
-      message: 'Underskrev og godkendte samlet tilbud',
-    })
-  }
-
-  function rejectOffer(jobId, { customerName, customerEmail, reason = '' }) {
-    updateJob(jobId, { status: 'rejected' })
-    logAction(jobId, {
-      action_type: 'reject',
-      actor_type: 'customer',
-      actor_name: customerName,
-      customer_email: customerEmail,
-      message: `Afviste samlet tilbud${reason ? `: ${reason}` : ''}`,
-    })
+    // Async: skriv til DB + refresh
+    if (hasSupabase && orgId) {
+      ;(async () => {
+        try {
+          const dbCustomer = await repo.createCustomer({
+            orgId,
+            name: customer.name,
+            address: customer.address,
+            zip: customer.zip,
+            city: customer.city,
+            customerType: customer.customer_type,
+            defaultVatHandling: vatHandling,
+          })
+          await repo.createJob({
+            orgId,
+            title,
+            customerId: dbCustomer.id,
+            vatHandling,
+            assignedTo: dbUserId,
+            createdBy: dbUserId,
+          })
+          await refresh()
+        } catch (err) {
+          // eslint-disable-next-line no-console
+          console.warn('[JobsContext] addJob DB-write fejlede:', err.message)
+        }
+      })()
+    }
+    return newJob
   }
 
   function updateJob(jobId, patch) {
     setJobs((prev) =>
       prev.map((j) => (j.id === jobId ? recomputeJob({ ...j, ...patch }) : j))
     )
+    if (hasSupabase && orgId && !jobId.startsWith('job-')) {
+      // Kun rigtige DB-IDs (UUID) - ikke mock
+      repo.updateJob(jobId, patch).catch((err) =>
+        // eslint-disable-next-line no-console
+        console.warn('[JobsContext] updateJob DB-write fejlede:', err.message)
+      )
+    }
   }
 
+  // ============================================
+  // ROOMS
+  // ============================================
   function addRoom(jobId, {
     name,
     room_type,
@@ -292,9 +254,11 @@ export function JobsProvider({ children }) {
     floorplan_mode = 'rectangle',
     suggested_templates = [],
   }) {
-    // Opret foreslåede pakker spredt ud over canvas-arealet
+    const templateMap = new Map(
+      (templates.length ? templates : PACKAGE_TEMPLATES).map((t) => [t.id, t])
+    )
     const packages = suggested_templates
-      .map((tid) => PACKAGE_TEMPLATES.find((t) => t.id === tid))
+      .map((tid) => templateMap.get(tid))
       .filter(Boolean)
       .map((tpl, idx, arr) => {
         const cols = Math.max(2, Math.ceil(Math.sqrt(arr.length)))
@@ -336,7 +300,77 @@ export function JobsProvider({ children }) {
         j.id === jobId ? recomputeJob({ ...j, rooms: [...j.rooms, room] }) : j
       )
     )
+
+    if (hasSupabase && orgId) {
+      ;(async () => {
+        try {
+          const dbRoom = await repo.createRoom({
+            jobId,
+            orgId,
+            name,
+            roomType: room_type,
+            widthCm: width_cm,
+            lengthCm: length_cm,
+            floorplanMode: floorplan_mode,
+          })
+          for (const pkg of packages) {
+            await repo.createRoomPackage({
+              roomId: dbRoom.id,
+              orgId,
+              templateId: pkg.template_id,
+              name: pkg.name,
+              lucideIcon: pkg.lucide_icon,
+              positionX: pkg.position_x,
+              positionY: pkg.position_y,
+              pricingModel: pkg.pricing_model,
+              fixedPrice: pkg.fixed_price,
+              hours: pkg.hours,
+              hourlyRate: pkg.hourly_rate,
+            })
+          }
+          await refresh()
+        } catch (err) {
+          // eslint-disable-next-line no-console
+          console.warn('[JobsContext] addRoom DB-write fejlede:', err.message)
+        }
+      })()
+    }
     return room
+  }
+
+  function updateRoom(jobId, roomId, patch) {
+    setJobs((prev) =>
+      prev.map((j) =>
+        j.id === jobId
+          ? recomputeJob({
+              ...j,
+              rooms: j.rooms.map((r) => (r.id === roomId ? { ...r, ...patch } : r)),
+            })
+          : j
+      )
+    )
+    if (hasSupabase && orgId && !roomId.startsWith('room-')) {
+      repo.updateRoom(roomId, patch).catch((err) =>
+        // eslint-disable-next-line no-console
+        console.warn('[JobsContext] updateRoom DB-write fejlede:', err.message)
+      )
+    }
+  }
+
+  function deleteRoom(jobId, roomId) {
+    setJobs((prev) =>
+      prev.map((j) =>
+        j.id === jobId
+          ? recomputeJob({ ...j, rooms: j.rooms.filter((r) => r.id !== roomId) })
+          : j
+      )
+    )
+    if (hasSupabase && orgId && !roomId.startsWith('room-')) {
+      repo.deleteRoom(roomId).catch((err) =>
+        // eslint-disable-next-line no-console
+        console.warn('[JobsContext] deleteRoom DB-write fejlede:', err.message)
+      )
+    }
   }
 
   function addDrawingLine(jobId, roomId, points) {
@@ -405,29 +439,9 @@ export function JobsProvider({ children }) {
     )
   }
 
-  function updateRoom(jobId, roomId, patch) {
-    setJobs((prev) =>
-      prev.map((j) =>
-        j.id === jobId
-          ? recomputeJob({
-              ...j,
-              rooms: j.rooms.map((r) => (r.id === roomId ? { ...r, ...patch } : r)),
-            })
-          : j
-      )
-    )
-  }
-
-  function deleteRoom(jobId, roomId) {
-    setJobs((prev) =>
-      prev.map((j) =>
-        j.id === jobId
-          ? recomputeJob({ ...j, rooms: j.rooms.filter((r) => r.id !== roomId) })
-          : j
-      )
-    )
-  }
-
+  // ============================================
+  // PACKAGES (på et rum)
+  // ============================================
   function addPackage(jobId, roomId, template, position) {
     const pkg = {
       id: uid('pkg'),
@@ -457,6 +471,28 @@ export function JobsProvider({ children }) {
           : j
       )
     )
+
+    if (hasSupabase && orgId && !roomId.startsWith('room-')) {
+      repo
+        .createRoomPackage({
+          roomId,
+          orgId,
+          templateId: template.id,
+          name: template.name,
+          lucideIcon: template.lucide_icon,
+          positionX: pkg.position_x,
+          positionY: pkg.position_y,
+          pricingModel: template.pricing_model,
+          fixedPrice: template.base_price,
+          hours: template.base_hours,
+          hourlyRate: template.hourly_rate,
+        })
+        .then(() => refresh())
+        .catch((err) =>
+          // eslint-disable-next-line no-console
+          console.warn('[JobsContext] addPackage DB-write fejlede:', err.message)
+        )
+    }
     return pkg
   }
 
@@ -480,6 +516,35 @@ export function JobsProvider({ children }) {
           : j
       )
     )
+    if (hasSupabase && orgId && !pkgId.startsWith('pkg-')) {
+      repo.updateRoomPackage(pkgId, patch).catch((err) =>
+        // eslint-disable-next-line no-console
+        console.warn('[JobsContext] updatePackage DB-write fejlede:', err.message)
+      )
+    }
+  }
+
+  function deletePackage(jobId, roomId, pkgId) {
+    setJobs((prev) =>
+      prev.map((j) =>
+        j.id === jobId
+          ? recomputeJob({
+              ...j,
+              rooms: j.rooms.map((r) =>
+                r.id === roomId
+                  ? { ...r, packages: r.packages.filter((p) => p.id !== pkgId) }
+                  : r
+              ),
+            })
+          : j
+      )
+    )
+    if (hasSupabase && orgId && !pkgId.startsWith('pkg-')) {
+      repo.deleteRoomPackage(pkgId).catch((err) =>
+        // eslint-disable-next-line no-console
+        console.warn('[JobsContext] deletePackage DB-write fejlede:', err.message)
+      )
+    }
   }
 
   function addPackagePhoto(jobId, roomId, pkgId, photo) {
@@ -530,23 +595,9 @@ export function JobsProvider({ children }) {
     )
   }
 
-  function deletePackage(jobId, roomId, pkgId) {
-    setJobs((prev) =>
-      prev.map((j) =>
-        j.id === jobId
-          ? recomputeJob({
-              ...j,
-              rooms: j.rooms.map((r) =>
-                r.id === roomId
-                  ? { ...r, packages: r.packages.filter((p) => p.id !== pkgId) }
-                  : r
-              ),
-            })
-          : j
-      )
-    )
-  }
-
+  // ============================================
+  // PACKAGE ITEMS
+  // ============================================
   function addItemToPackage(jobId, roomId, pkgId, { item, quantity = 1 }) {
     const pi = {
       id: uid('pi'),
@@ -575,6 +626,24 @@ export function JobsProvider({ children }) {
           : j
       )
     )
+
+    if (hasSupabase && orgId && !pkgId.startsWith('pkg-')) {
+      repo
+        .createPackageItem({
+          roomPackageId: pkgId,
+          orgId,
+          itemId: item.id,
+          nameSnapshot: item.name,
+          quantity: pi.quantity,
+          unitPrice: pi.unit_price,
+          addedBy: 'montor',
+        })
+        .then(() => refresh())
+        .catch((err) =>
+          // eslint-disable-next-line no-console
+          console.warn('[JobsContext] addItemToPackage DB-write fejlede:', err.message)
+        )
+    }
     return pi
   }
 
@@ -605,6 +674,12 @@ export function JobsProvider({ children }) {
           : j
       )
     )
+    if (hasSupabase && orgId && !itemId.startsWith('pi-')) {
+      repo.updatePackageItem(itemId, patch).catch((err) =>
+        // eslint-disable-next-line no-console
+        console.warn('[JobsContext] updatePackageItem DB-write fejlede:', err.message)
+      )
+    }
   }
 
   function removePackageItem(jobId, roomId, pkgId, itemId) {
@@ -629,8 +704,17 @@ export function JobsProvider({ children }) {
           : j
       )
     )
+    if (hasSupabase && orgId && !itemId.startsWith('pi-')) {
+      repo.deletePackageItem(itemId).catch((err) =>
+        // eslint-disable-next-line no-console
+        console.warn('[JobsContext] removePackageItem DB-write fejlede:', err.message)
+      )
+    }
   }
 
+  // ============================================
+  // ITEMS (varedatabase)
+  // ============================================
   function searchItems(query) {
     const q = query.trim().toLowerCase()
     if (!q) return items
@@ -643,7 +727,7 @@ export function JobsProvider({ children }) {
   }
 
   function createItem({ name, sku, category, unit, sales_price }) {
-    const newItem = {
+    const localItem = {
       id: uid('i'),
       sku: sku?.trim() || null,
       name: name.trim(),
@@ -652,20 +736,52 @@ export function JobsProvider({ children }) {
       sales_price: Number(sales_price) || 0,
       supplier: 'manual',
     }
-    setItems((prev) => [newItem, ...prev])
-    return newItem
+    setItems((prev) => [localItem, ...prev])
+
+    if (hasSupabase && orgId) {
+      repo
+        .createItem({
+          orgId,
+          name,
+          sku,
+          category,
+          unit,
+          salesPrice: Number(sales_price) || 0,
+          createdBy: dbUserId,
+        })
+        .then((dbItem) => {
+          // Replace optimistic item with DB-version
+          setItems((prev) => [dbItem, ...prev.filter((i) => i.id !== localItem.id)])
+        })
+        .catch((err) =>
+          // eslint-disable-next-line no-console
+          console.warn('[JobsContext] createItem DB-write fejlede:', err.message)
+        )
+    }
+    return localItem
   }
 
   function updateItem(itemId, patch) {
     setItems((prev) => prev.map((it) => (it.id === itemId ? { ...it, ...patch } : it)))
+    if (hasSupabase && orgId && !itemId.startsWith('i-')) {
+      repo.updateItem(itemId, patch).catch((err) =>
+        // eslint-disable-next-line no-console
+        console.warn('[JobsContext] updateItem DB-write fejlede:', err.message)
+      )
+    }
   }
 
   function deleteItem(itemId) {
     setItems((prev) => prev.filter((it) => it.id !== itemId))
+    if (hasSupabase && orgId && !itemId.startsWith('i-')) {
+      repo.deleteItem(itemId).catch((err) =>
+        // eslint-disable-next-line no-console
+        console.warn('[JobsContext] deleteItem DB-write fejlede:', err.message)
+      )
+    }
   }
 
   function importItemsCSV(rows) {
-    // rows: [{ name, sku, category, unit, sales_price }]
     const created = rows
       .filter((r) => r.name?.trim())
       .map((r) => ({
@@ -678,11 +794,32 @@ export function JobsProvider({ children }) {
         supplier: 'manual',
       }))
     setItems((prev) => [...created, ...prev])
+
+    if (hasSupabase && orgId) {
+      Promise.all(
+        created.map((it) =>
+          repo.createItem({
+            orgId,
+            name: it.name,
+            sku: it.sku,
+            category: it.category,
+            unit: it.unit,
+            salesPrice: it.sales_price,
+            createdBy: dbUserId,
+          })
+        )
+      )
+        .then(() => refresh())
+        .catch((err) =>
+          // eslint-disable-next-line no-console
+          console.warn('[JobsContext] importItemsCSV fejlede:', err.message)
+        )
+    }
     return created
   }
 
   // ============================================
-  // Pakke-skabeloner CRUD (org's kopier af globale)
+  // TEMPLATES
   // ============================================
   function createTemplate(data) {
     const tpl = {
@@ -716,6 +853,134 @@ export function JobsProvider({ children }) {
     )
   }
 
+  // ============================================
+  // CUSTOMER ACTIONS
+  // ============================================
+  function logAction(jobId, action) {
+    const entry = {
+      id: uid('act'),
+      created_at: new Date().toISOString(),
+      ...action,
+    }
+    setJobs((prev) =>
+      prev.map((j) =>
+        j.id === jobId ? { ...j, actions: [...(j.actions || []), entry] } : j
+      )
+    )
+    return entry
+  }
+
+  function persistAction(jobId, action) {
+    if (!hasSupabase || !orgId || jobId.startsWith('job-')) return
+    repo
+      .logCustomerAction({
+        jobId,
+        orgId,
+        actionType: action.action_type,
+        message: action.message,
+        customerName: action.actor_name,
+        customerEmail: action.customer_email,
+        roomPackageId: action.room_package_id,
+        packageItemId: action.package_item_id,
+      })
+      .catch((err) =>
+        // eslint-disable-next-line no-console
+        console.warn('[JobsContext] persistAction fejlede:', err.message)
+      )
+  }
+
+  function getJobByShareToken(token) {
+    return jobs.find((j) => j.share_token === token)
+  }
+
+  function toggleItemSelected(jobId, roomId, pkgId, itemId, selected, customerMeta = {}) {
+    updatePackageItem(jobId, roomId, pkgId, itemId, { customer_selected: selected })
+    const pkg = getPackage(jobId, roomId, pkgId)
+    const it = pkg?.items.find((i) => i.id === itemId)
+    const action = {
+      action_type: 'toggle_item',
+      actor_type: 'customer',
+      actor_name: customerMeta.name || 'Kunde',
+      room_package_id: pkgId,
+      package_item_id: itemId,
+      message: `${selected ? 'Tilvalgte' : 'Fravalgte'} ${it?.name_snapshot || 'vare'}`,
+    }
+    logAction(jobId, action)
+    persistAction(jobId, action)
+  }
+
+  function addComment(jobId, { roomPackageId = null, message, customerName, customerEmail }) {
+    const action = {
+      action_type: 'comment',
+      actor_type: 'customer',
+      actor_name: customerName || 'Kunde',
+      customer_email: customerEmail,
+      room_package_id: roomPackageId,
+      message,
+    }
+    logAction(jobId, action)
+    persistAction(jobId, action)
+  }
+
+  function approvePackage(jobId, roomId, pkgId, customerName = 'Kunde') {
+    updatePackage(jobId, roomId, pkgId, { status: 'approved_by_customer' })
+    const pkg = getPackage(jobId, roomId, pkgId)
+    const action = {
+      action_type: 'approve',
+      actor_type: 'customer',
+      actor_name: customerName,
+      room_package_id: pkgId,
+      message: `Godkendte ${pkg?.name || 'pakke'}`,
+    }
+    logAction(jobId, action)
+    persistAction(jobId, action)
+  }
+
+  function rejectPackage(jobId, roomId, pkgId, { customerName = 'Kunde', reason = '' } = {}) {
+    updatePackage(jobId, roomId, pkgId, { status: 'rejected_by_customer' })
+    const pkg = getPackage(jobId, roomId, pkgId)
+    const action = {
+      action_type: 'reject',
+      actor_type: 'customer',
+      actor_name: customerName,
+      room_package_id: pkgId,
+      message: `Afviste ${pkg?.name || 'pakke'}${reason ? `: ${reason}` : ''}`,
+    }
+    logAction(jobId, action)
+    persistAction(jobId, action)
+  }
+
+  function signOffer(jobId, { customerName, customerEmail, signature = null }) {
+    updateJob(jobId, {
+      status: 'approved',
+      signed_at: new Date().toISOString(),
+      signed_by: customerName,
+      signature,
+    })
+    const action = {
+      action_type: 'sign_offer',
+      actor_type: 'customer',
+      actor_name: customerName,
+      customer_email: customerEmail,
+      message: 'Underskrev og godkendte samlet tilbud',
+    }
+    logAction(jobId, action)
+    persistAction(jobId, action)
+  }
+
+  function rejectOffer(jobId, { customerName, customerEmail, reason = '' }) {
+    updateJob(jobId, { status: 'rejected' })
+    const action = {
+      action_type: 'reject',
+      actor_type: 'customer',
+      actor_name: customerName,
+      customer_email: customerEmail,
+      message: `Afviste samlet tilbud${reason ? `: ${reason}` : ''}`,
+    }
+    logAction(jobId, action)
+    persistAction(jobId, action)
+  }
+
   function getJob(jobId) {
     return jobs.find((j) => j.id === jobId)
   }
@@ -732,6 +997,10 @@ export function JobsProvider({ children }) {
     () => ({
       jobs,
       items,
+      templates,
+      dbLoading,
+      supabaseMode: supabaseModeRef.current,
+      refresh,
       addJob,
       updateJob,
       addRoom,
@@ -753,7 +1022,6 @@ export function JobsProvider({ children }) {
       updateItem,
       deleteItem,
       importItemsCSV,
-      templates,
       createTemplate,
       updateTemplate,
       deleteTemplate,
@@ -770,7 +1038,7 @@ export function JobsProvider({ children }) {
       rejectOffer,
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [jobs, items, templates]
+    [jobs, items, templates, dbLoading, orgId, dbUserId]
   )
 
   return <JobsContext.Provider value={value}>{children}</JobsContext.Provider>
