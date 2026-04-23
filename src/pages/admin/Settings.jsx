@@ -57,6 +57,8 @@ export default function AdminSettings() {
   async function handleField(field, value) {
     setStatus('saving')
     clearTimeout(savedTimerRef.current)
+    // Sikkerheds-timeout: hvis updateOrg haenger > 8s, tving status tilbage
+    const watchdog = setTimeout(() => setStatus('idle'), 8000)
     try {
       await updateOrg({ [field]: value })
       setStatus('saved')
@@ -64,6 +66,8 @@ export default function AdminSettings() {
       savedTimerRef.current = setTimeout(() => setStatus('idle'), 2500)
     } catch {
       setStatus('idle')
+    } finally {
+      clearTimeout(watchdog)
     }
   }
 
@@ -79,6 +83,11 @@ export default function AdminSettings() {
       return
     }
     setCvrLoading(true)
+    // Hvis CVR-API hænger helt (CORS-preflight uden svar), tving reset efter 8s
+    const watchdog = setTimeout(() => {
+      setCvrLoading(false)
+      toast.error('CVR-opslag tog for lang tid — udfyld manuelt')
+    }, 8000)
     try {
       const info = await lookupCvr(cvr)
       const patch = {}
@@ -104,6 +113,7 @@ export default function AdminSettings() {
     } catch (err) {
       toast.error(err.message || 'CVR-opslag fejlede')
     } finally {
+      clearTimeout(watchdog)
       setCvrLoading(false)
     }
   }

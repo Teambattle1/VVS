@@ -11,9 +11,9 @@ export async function lookupCvr(cvr) {
     throw new Error('CVR-nummer skal være 8 cifre')
   }
 
-  // 10 sekunders timeout — cvrapi.dk hænger undertiden uden CORS-svar
+  // 6 sekunders timeout — cvrapi.dk hænger undertiden uden CORS-svar
   const controller = new AbortController()
-  const timeoutId = setTimeout(() => controller.abort(), 10000)
+  const timeoutId = setTimeout(() => controller.abort(), 6000)
 
   let res
   try {
