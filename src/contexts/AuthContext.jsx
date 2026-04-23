@@ -65,6 +65,15 @@ export function AuthProvider({ children }) {
         if (data.session?.user) {
           const u = await enrichUserWithProfile(data.session.user)
           setUser(u)
+        } else {
+          // Ingen Supabase session — tjek for persisteret demo-bruger (CREW login)
+          try {
+            const stored = localStorage.getItem(STORAGE_KEY)
+            if (stored) {
+              const u = JSON.parse(stored)
+              if (u?.id && u?.email) setUser(u)
+            }
+          } catch { /* ignore */ }
         }
         setLoading(false)
 

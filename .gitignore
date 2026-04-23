@@ -45,3 +45,4 @@ files.zip
 
 # Local Netlify folder
 .netlify
+.playwright-mcp/
