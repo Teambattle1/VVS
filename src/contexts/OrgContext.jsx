@@ -4,6 +4,7 @@ import { useToast } from './ToastContext.jsx'
 import { hasSupabase, supabase } from '../lib/supabase.js'
 import { INITIAL_TEAM } from '../lib/mockUsers.js'
 import { INITIAL_ORGS } from '../lib/mockOrgs.js'
+import * as teamRepo from '../lib/teamRepo.js'
 
 const OrgContext = createContext(null)
 
@@ -40,24 +41,34 @@ export function OrgProvider({ children }) {
   const [org, setOrg] = useState(null) // aktive org (=homeOrg for ikke-super-admins)
   const [homeOrgId, setHomeOrgId] = useState(null) // brugerens egen org fra vvs_users
   const [userRole, setUserRole] = useState(null)
-  // Alle brugere faar default-kode '1234' medmindre anden angivet
-  const [team, setTeam] = useState(() => {
-    try {
-      const stored = localStorage.getItem('vvs.demoTeam')
-      if (stored) {
-        const parsed = JSON.parse(stored)
-        if (Array.isArray(parsed) && parsed.length) return parsed
-      }
-    } catch { /* ignore */ }
-    return INITIAL_TEAM.map((u) => ({ ...u, password: u.password || '1234' }))
-  })
+  // Team hentes nu fra DB (vvs_users) naar orgId er sat.
+  // INITIAL_TEAM bruges kun som mock-fallback hvis Supabase ikke er aktiv.
+  const [team, setTeam] = useState(() =>
+    INITIAL_TEAM.map((u) => ({ ...u, password: u.password || '1234' }))
+  )
 
-  // Persister team-aendringer saa AuthContext kan fallback-validere logins
-  useEffect(() => {
+  async function refreshTeam(orgId) {
+    if (!hasSupabase || !orgId) return
     try {
-      localStorage.setItem('vvs.demoTeam', JSON.stringify(team))
-    } catch { /* ignore */ }
-  }, [team])
+      const rows = await teamRepo.loadTeam(orgId)
+      if (rows.length === 0) {
+        // Foerste gang org'en loader: seed INITIAL_TEAM i DB saa demo-brugere findes
+        for (const u of INITIAL_TEAM) {
+          // eslint-disable-next-line no-await-in-loop
+          await teamRepo
+            .createTeamMember({ orgId, ...u, password: u.password || '1234' })
+            .catch(() => {}) // ignorer fejl (fx duplicate email)
+        }
+        const seeded = await teamRepo.loadTeam(orgId)
+        setTeam(seeded)
+      } else {
+        setTeam(rows)
+      }
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.warn('[OrgContext] kunne ikke loade team fra DB:', err?.message)
+    }
+  }
   const [allOrgs, setAllOrgs] = useState(hasSupabase ? [] : INITIAL_ORGS)
 
   function reportDbError(where, err) {
@@ -177,6 +188,12 @@ export function OrgProvider({ children }) {
     }
   }, [org])
 
+  // Load team fra DB naar aktive org skifter
+  useEffect(() => {
+    if (org?.id) refreshTeam(org.id)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [org?.id])
+
   async function updateOrg(patch) {
     const currentId = org?.id
     // Optimistic local update
@@ -200,9 +217,8 @@ export function OrgProvider({ children }) {
     }
   }
 
-  function addTeamMember({ name, email, phone, role, password, active }) {
-    const newUser = {
-      id: uid('u'),
+  async function addTeamMember({ name, email, phone, role, password, active }) {
+    const input = {
       name: name.trim(),
       email: email.trim(),
       phone: phone?.trim() || '',
@@ -210,16 +226,42 @@ export function OrgProvider({ children }) {
       active: active !== false,
       password: (password && password.trim()) || '1234',
     }
-    setTeam((prev) => [newUser, ...prev])
-    return newUser
+    if (hasSupabase && org?.id) {
+      try {
+        const created = await teamRepo.createTeamMember({ orgId: org.id, ...input })
+        setTeam((prev) => [created, ...prev])
+        return created
+      } catch (err) {
+        reportDbError('Kunne ikke gemme bruger', err)
+        throw err
+      }
+    }
+    const local = { id: uid('u'), ...input }
+    setTeam((prev) => [local, ...prev])
+    return local
   }
 
-  function updateTeamMember(userId, patch) {
-    setTeam((prev) => prev.map((u) => (u.id === userId ? { ...u, ...patch } : u)))
+  async function updateTeamMember(userId, patch) {
+    setTeam((prev) => prev.map((u) => (u.id === userId ? { ...u, ...patch } : u))) // optimistisk
+    if (hasSupabase && org?.id && !String(userId).startsWith('u-')) {
+      try {
+        const updated = await teamRepo.updateTeamMemberDb(userId, patch)
+        setTeam((prev) => prev.map((u) => (u.id === userId ? updated : u)))
+      } catch (err) {
+        reportDbError('Kunne ikke opdatere bruger', err)
+      }
+    }
   }
 
-  function removeTeamMember(userId) {
-    setTeam((prev) => prev.filter((u) => u.id !== userId))
+  async function removeTeamMember(userId) {
+    setTeam((prev) => prev.filter((u) => u.id !== userId)) // optimistisk
+    if (hasSupabase && !String(userId).startsWith('u-')) {
+      try {
+        await teamRepo.deleteTeamMember(userId)
+      } catch (err) {
+        reportDbError('Kunne ikke slette bruger', err)
+      }
+    }
   }
 
   async function addOrg(data) {
