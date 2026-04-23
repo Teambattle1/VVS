@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { Droplets, Mail, Lock, Loader2, AlertCircle } from 'lucide-react'
+import { Mail, Lock, Loader2, AlertCircle } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext.jsx'
+import BrandIcon from '../components/BrandIcon.jsx'
 
 export default function Login() {
   const { signIn } = useAuth()
@@ -32,10 +33,10 @@ export default function Login() {
     <div className="min-h-screen flex flex-col items-center justify-center px-5 py-8 bg-gradient-to-b from-sky-50 via-slate-50 to-white">
       <div className="w-full max-w-md">
         <div className="flex flex-col items-center mb-8">
-          <div className="w-14 h-14 rounded-2xl bg-brand-primary flex items-center justify-center shadow-sm mb-4">
-            <Droplets className="w-7 h-7 text-white" strokeWidth={2.25} />
-          </div>
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">VVS FLOW</h1>
+          <BrandIcon size={64} className="mb-4 text-slate-900" />
+          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
+            VVS <span className="text-sky-500">FLOW</span>
+          </h1>
           <p className="text-sm text-slate-500 mt-1">Log ind for at se dine sager</p>
         </div>
 

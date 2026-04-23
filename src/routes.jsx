@@ -3,6 +3,8 @@ import { useAuth } from './contexts/AuthContext.jsx'
 import Login from './pages/Login.jsx'
 import Dashboard from './pages/Dashboard.jsx'
 import NewJob from './pages/NewJob.jsx'
+import JobDetail from './pages/JobDetail.jsx'
+import RoomEditor from './pages/RoomEditor.jsx'
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth()
@@ -54,6 +56,22 @@ export default function AppRoutes() {
         element={
           <ProtectedRoute>
             <NewJob />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/jobs/:jobId"
+        element={
+          <ProtectedRoute>
+            <JobDetail />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/jobs/:jobId/rooms/:roomId"
+        element={
+          <ProtectedRoute>
+            <RoomEditor />
           </ProtectedRoute>
         }
       />

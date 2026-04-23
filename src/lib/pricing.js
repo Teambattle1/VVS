@@ -29,3 +29,46 @@ export function priceLabel(excl, vatHandling) {
       return `${formatDKK(excl)} ekskl. / ${formatDKK(incl)} inkl. moms`
   }
 }
+
+// ============================================
+// Pakke/rum/job sum-beregninger
+// Alle returværdier er EKSKL. moms.
+// ============================================
+
+function itemTotal(item) {
+  if (!item.customer_selected) return 0
+  return (Number(item.quantity) || 0) * (Number(item.unit_price) || 0)
+}
+
+export function packageItemsTotal(pkg) {
+  if (!pkg?.items?.length) return 0
+  return pkg.items.reduce((sum, it) => sum + itemTotal(it), 0)
+}
+
+export function packageLaborTotal(pkg) {
+  if (!pkg) return 0
+  switch (pkg.pricing_model) {
+    case 'fixed':
+      return Number(pkg.fixed_price) || 0
+    case 'hourly':
+      return (Number(pkg.hours) || 0) * (Number(pkg.hourly_rate) || 0)
+    case 'package_plus':
+      return Number(pkg.fixed_price) || 0
+    default:
+      return 0
+  }
+}
+
+export function packageTotal(pkg) {
+  return packageLaborTotal(pkg) + packageItemsTotal(pkg)
+}
+
+export function roomTotal(room) {
+  if (!room?.packages?.length) return 0
+  return room.packages.reduce((sum, p) => sum + packageTotal(p), 0)
+}
+
+export function jobTotal(job) {
+  if (!job?.rooms?.length) return 0
+  return job.rooms.reduce((sum, r) => sum + roomTotal(r), 0)
+}

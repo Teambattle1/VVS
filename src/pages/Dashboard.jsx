@@ -1,9 +1,9 @@
 import { useMemo, useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import {
   Plus,
   Search,
   LogOut,
-  Droplets,
   MapPin,
   User as UserIcon,
   Home,
@@ -16,8 +16,10 @@ import {
 import clsx from 'clsx'
 import { useAuth } from '../contexts/AuthContext.jsx'
 import { useOrg } from '../contexts/OrgContext.jsx'
-import { MOCK_JOBS, STATUS_LABELS } from '../lib/mockJobs.js'
+import { useJobs } from '../contexts/JobsContext.jsx'
+import { STATUS_LABELS } from '../lib/mockJobs.js'
 import { priceLabel } from '../lib/pricing.js'
+import BrandIcon from '../components/BrandIcon.jsx'
 
 const STATUS_FILTERS = [
   { value: 'all', label: 'Alle', activeClass: 'bg-slate-900 text-white border-slate-900' },
@@ -30,11 +32,13 @@ const STATUS_FILTERS = [
 export default function Dashboard() {
   const { user, signOut } = useAuth()
   const { org } = useOrg()
+  const { jobs } = useJobs()
+  const navigate = useNavigate()
   const [statusFilter, setStatusFilter] = useState('all')
   const [query, setQuery] = useState('')
 
   const filteredJobs = useMemo(() => {
-    return MOCK_JOBS.filter((job) => {
+    return jobs.filter((job) => {
       if (statusFilter !== 'all' && job.status !== statusFilter) return false
       if (query.trim()) {
         const q = query.toLowerCase()
@@ -46,17 +50,15 @@ export default function Dashboard() {
       }
       return true
     })
-  }, [statusFilter, query])
+  }, [jobs, statusFilter, query])
 
-  const totalPipeline = MOCK_JOBS.reduce((sum, j) => sum + j.total_price_excl_vat, 0)
+  const totalPipeline = jobs.reduce((sum, j) => sum + (j.total_price_excl_vat || 0), 0)
 
   return (
     <div className="min-h-screen pb-24 md:pb-8 bg-slate-50">
       <header className="bg-white border-b border-slate-200 sticky top-0 z-30">
         <div className="max-w-5xl mx-auto px-4 md:px-6 py-3 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-brand-primary flex items-center justify-center flex-shrink-0">
-            <Droplets className="w-5 h-5 text-white" strokeWidth={2.25} />
-          </div>
+          <BrandIcon size={40} className="flex-shrink-0 text-slate-900" />
           <div className="flex-1 min-w-0">
             <div className="text-xs text-slate-500 truncate">{org?.name || 'VVS Firma'}</div>
             <div className="text-sm font-bold text-slate-900 truncate">Mine sager</div>
@@ -93,7 +95,11 @@ export default function Dashboard() {
               onChange={(e) => setQuery(e.target.value)}
             />
           </div>
-          <button type="button" className="btn-primary sm:w-auto w-full">
+          <button
+            type="button"
+            onClick={() => navigate('/jobs/new')}
+            className="btn-primary sm:w-auto w-full"
+          >
             <Plus className="w-5 h-5 text-white" strokeWidth={2.25} />
             Nyt job
           </button>
@@ -156,9 +162,10 @@ function StatCard({ label, value, suffix }) {
 function JobCard({ job }) {
   const status = STATUS_LABELS[job.status] || STATUS_LABELS.draft
   return (
-    <article
+    <Link
+      to={`/jobs/${job.id}`}
       className={clsx(
-        'relative bg-white rounded-2xl shadow-sm border-2 overflow-hidden p-4 md:p-5 hover:shadow-md transition-shadow cursor-pointer active:scale-[0.99] flex flex-col',
+        'relative bg-white rounded-2xl shadow-sm border-2 overflow-hidden p-4 md:p-5 hover:shadow-md transition-shadow active:scale-[0.99] flex flex-col',
         status.border
       )}
     >
@@ -198,10 +205,10 @@ function JobCard({ job }) {
           {priceLabel(job.total_price_excl_vat, job.vat_handling)}
         </div>
         <div className="text-xs text-slate-500">
-          {job.rooms_count} {job.rooms_count === 1 ? 'rum' : 'rum'}
+          {job.rooms_count || 0} rum
         </div>
       </div>
-    </article>
+    </Link>
   )
 }
 

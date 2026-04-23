@@ -1,7 +1,232 @@
+import { useState } from 'react'
+import { useNavigate, useParams, Link } from 'react-router-dom'
+import {
+  ArrowLeft,
+  Plus,
+  ChevronRight,
+  User as UserIcon,
+  Building2,
+  MapPin,
+  Send,
+  Share2,
+  Trash2,
+  Home,
+} from 'lucide-react'
+import clsx from 'clsx'
+import { useJobs } from '../contexts/JobsContext.jsx'
+import { STATUS_LABELS } from '../lib/mockJobs.js'
+import { ROOM_TYPES } from '../lib/mockTemplates.js'
+import { jobTotal, roomTotal } from '../lib/pricing.js'
+import PriceSummary from '../components/PriceSummary.jsx'
+import VatToggle from '../components/VatToggle.jsx'
+import AddRoomDialog from '../components/AddRoomDialog.jsx'
+
 export default function JobDetail() {
+  const { jobId } = useParams()
+  const navigate = useNavigate()
+  const { getJob, updateJob, addRoom, deleteRoom } = useJobs()
+  const [showAddRoom, setShowAddRoom] = useState(false)
+
+  const job = getJob(jobId)
+  if (!job) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-8 text-center">
+        <div>
+          <p className="text-slate-600 mb-3">Sagen findes ikke.</p>
+          <Link to="/" className="btn-primary">Tilbage til oversigt</Link>
+        </div>
+      </div>
+    )
+  }
+
+  const status = STATUS_LABELS[job.status] || STATUS_LABELS.draft
+  const total = jobTotal(job)
+
+  function handleCreateRoom(data) {
+    const room = addRoom(job.id, data)
+    setShowAddRoom(false)
+    navigate(`/jobs/${job.id}/rooms/${room.id}`)
+  }
+
+  function handleShare() {
+    const url = `${window.location.origin}/k/${job.share_token || job.id}`
+    navigator.clipboard?.writeText(url)
+    alert(`Kundelink kopieret:\n\n${url}`)
+  }
+
   return (
-    <div className="p-6 text-slate-500 text-sm">
-      Job-detaljer bygges i Fase 2.
+    <div className="min-h-screen pb-24 md:pb-12 bg-slate-50">
+      <header className={clsx('sticky top-0 z-30 bg-white border-b-2', status.border)}>
+        <div className="max-w-4xl mx-auto px-4 md:px-6 py-3 flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => navigate('/')}
+            className="inline-flex items-center justify-center w-10 h-10 rounded-2xl text-slate-500 hover:bg-slate-100"
+            aria-label="Tilbage"
+          >
+            <ArrowLeft className="w-5 h-5" strokeWidth={2} />
+          </button>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xs font-semibold text-slate-500">{job.job_number}</span>
+              <span className={clsx('chip', status.color)}>{status.label}</span>
+            </div>
+            <h1 className="text-sm md:text-base font-bold text-slate-900 truncate">{job.title}</h1>
+          </div>
+          <button
+            type="button"
+            onClick={handleShare}
+            className="hidden md:inline-flex btn-secondary"
+          >
+            <Share2 className="w-5 h-5 text-slate-700" strokeWidth={2} />
+            Del med kunde
+          </button>
+        </div>
+      </header>
+
+      <main className="max-w-4xl mx-auto px-4 md:px-6 pt-5 space-y-5">
+        <section className="card p-5">
+          <div className="flex items-start justify-between gap-4 flex-wrap">
+            <div className="flex items-start gap-3">
+              <div className="w-11 h-11 rounded-2xl bg-slate-100 text-slate-600 flex items-center justify-center flex-shrink-0">
+                {job.customer.customer_type === 'business' ? (
+                  <Building2 className="w-5 h-5" strokeWidth={2} />
+                ) : (
+                  <UserIcon className="w-5 h-5" strokeWidth={2} />
+                )}
+              </div>
+              <div>
+                <div className="text-xs uppercase tracking-wide text-slate-400 font-semibold">
+                  {job.customer.customer_type === 'business' ? 'Erhvervskunde' : 'Privatkunde'}
+                </div>
+                <div className="text-base font-bold text-slate-900">{job.customer.name}</div>
+                <div className="text-sm text-slate-500 flex items-center gap-1 mt-0.5">
+                  <MapPin className="w-4 h-4 text-slate-400" strokeWidth={2} />
+                  {job.customer.address}
+                </div>
+              </div>
+            </div>
+            <PriceSummary excl={total} vatHandling={job.vat_handling} size="lg" label="Job i alt" />
+          </div>
+
+          <div className="mt-4 pt-4 border-t border-slate-100 flex flex-wrap items-center gap-3">
+            <span className="text-xs font-semibold text-slate-500">Vis priser:</span>
+            <VatToggle
+              value={job.vat_handling}
+              onChange={(v) => updateJob(job.id, { vat_handling: v })}
+              size="sm"
+            />
+          </div>
+        </section>
+
+        <section>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-lg font-bold text-slate-900">Rum ({job.rooms?.length || 0})</h2>
+            <button
+              type="button"
+              onClick={() => setShowAddRoom(true)}
+              className="btn-primary"
+            >
+              <Plus className="w-5 h-5 text-white" strokeWidth={2.25} />
+              Tilføj rum
+            </button>
+          </div>
+
+          {job.rooms?.length === 0 ? (
+            <div className="card p-8 text-center">
+              <div className="w-14 h-14 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center mx-auto mb-3">
+                <Home className="w-6 h-6" strokeWidth={2} />
+              </div>
+              <p className="text-sm text-slate-600 mb-4">
+                Tilføj det første rum for at begynde at placere pakker.
+              </p>
+              <button
+                type="button"
+                onClick={() => setShowAddRoom(true)}
+                className="btn-primary mx-auto"
+              >
+                <Plus className="w-5 h-5 text-white" strokeWidth={2.25} />
+                Tilføj rum
+              </button>
+            </div>
+          ) : (
+            <ul className="space-y-3">
+              {job.rooms.map((room) => (
+                <RoomRow
+                  key={room.id}
+                  room={room}
+                  jobId={job.id}
+                  vatHandling={job.vat_handling}
+                  onDelete={() => {
+                    if (confirm(`Slet rum "${room.name}"?`)) deleteRoom(job.id, room.id)
+                  }}
+                />
+              ))}
+            </ul>
+          )}
+        </section>
+
+        <section className="flex flex-col md:flex-row gap-2 pt-2">
+          <button
+            type="button"
+            onClick={handleShare}
+            className="btn-accent flex-1 md:hidden"
+          >
+            <Share2 className="w-5 h-5 text-white" strokeWidth={2.25} />
+            Del med kunde
+          </button>
+          {job.status === 'draft' && (
+            <button
+              type="button"
+              onClick={() => updateJob(job.id, { status: 'sent' })}
+              className="btn-primary flex-1"
+            >
+              <Send className="w-5 h-5 text-white" strokeWidth={2.25} />
+              Marker som sendt
+            </button>
+          )}
+        </section>
+      </main>
+
+      {showAddRoom && (
+        <AddRoomDialog
+          onClose={() => setShowAddRoom(false)}
+          onCreate={handleCreateRoom}
+        />
+      )}
     </div>
+  )
+}
+
+function RoomRow({ room, jobId, vatHandling, onDelete }) {
+  const roomTypeLabel = ROOM_TYPES.find((t) => t.value === room.room_type)?.label || room.room_type
+  const total = roomTotal(room)
+  return (
+    <li className="card p-4 flex items-center gap-3 hover:shadow-md transition-shadow">
+      <Link
+        to={`/jobs/${jobId}/rooms/${room.id}`}
+        className="flex items-center gap-3 flex-1 min-w-0"
+      >
+        <div className="w-11 h-11 rounded-2xl bg-sky-50 text-sky-600 flex items-center justify-center flex-shrink-0">
+          <Home className="w-5 h-5" strokeWidth={2} />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="text-sm font-bold text-slate-900 truncate">{room.name}</div>
+          <div className="text-xs text-slate-500">
+            {roomTypeLabel} · {room.width_cm} × {room.length_cm} cm · {room.packages?.length || 0} pakker
+          </div>
+        </div>
+        <PriceSummary excl={total} vatHandling={vatHandling} label="" />
+        <ChevronRight className="w-5 h-5 text-slate-300 flex-shrink-0" strokeWidth={2} />
+      </Link>
+      <button
+        type="button"
+        onClick={onDelete}
+        className="w-9 h-9 rounded-xl text-rose-500 hover:bg-rose-50 flex items-center justify-center flex-shrink-0"
+        aria-label="Slet rum"
+      >
+        <Trash2 className="w-4 h-4" strokeWidth={2} />
+      </button>
+    </li>
   )
 }
