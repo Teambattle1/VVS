@@ -50,8 +50,8 @@
 }
 
 :root {
-  --brand-primary: #0EA5E9;
-  --brand-accent: #F59E0B;
+  --brand-primary: #2563EB; /* VVS FLOW blaa */
+  --brand-accent:  #22C55E; /* VVS FLOW groen */
 }
 
 html,
@@ -100,7 +100,7 @@ body {
 
 @layer components {
   .btn {
-    @apply inline-flex items-center justify-center gap-2 rounded-2xl px-4 py-3 font-semibold text-sm transition-colors duration-150 min-h-[44px];
+    @apply inline-flex items-center justify-center gap-2 rounded-2xl px-4 py-3 font-bold text-sm uppercase tracking-wide transition-colors duration-150 min-h-[44px];
   }
   .btn-primary {
     @apply btn bg-brand-primary text-white hover:brightness-110 active:brightness-95 shadow-sm;

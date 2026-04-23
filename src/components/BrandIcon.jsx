@@ -1,5 +1,7 @@
 import clsx from 'clsx'
 
+// VVS FLOW brand: split lyn-bolt — groen venstre, blaa hoejre,
+// paa hvid cirkel med moerk ramme. Matches logo fra brandguide.
 export default function BrandIcon({ size = 48, className, rounded = true }) {
   return (
     <svg
@@ -12,20 +14,26 @@ export default function BrandIcon({ size = 48, className, rounded = true }) {
       role="img"
       aria-label="VVS FLOW"
     >
-      {rounded && <rect width="64" height="64" rx="14" fill="currentColor" fillOpacity="0.06" />}
-      <g
-        transform="translate(4 0) scale(2.5)"
-        stroke="#84CC16"
-        strokeWidth="2.5"
-        strokeLinecap="round"
+      <defs>
+        <linearGradient id="vvs-bolt-split" x1="0" x2="1" y1="0" y2="0">
+          <stop offset="0.5" stopColor="#22C55E" />
+          <stop offset="0.5" stopColor="#2563EB" />
+        </linearGradient>
+      </defs>
+      {rounded && (
+        <>
+          <circle cx="32" cy="32" r="30" fill="#FFFFFF" />
+          <circle cx="32" cy="32" r="30" fill="none" stroke="#0F172A" strokeWidth="3" />
+        </>
+      )}
+      {/* Stiliseret lyn-bolt med hard split i midten */}
+      <path
+        d="M34 10 L16 36 L28 36 L24 54 L48 28 L34 28 L40 10 Z"
+        fill="url(#vvs-bolt-split)"
+        stroke="#0F172A"
+        strokeWidth="1.5"
         strokeLinejoin="round"
-        fill="none"
-      >
-        <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
-      </g>
-      <path d="M16 50 Q12 55 16 58 Q20 55 16 50 Z" fill="#0EA5E9" />
-      <path d="M32 52 Q28 57 32 60 Q36 57 32 52 Z" fill="#0EA5E9" />
-      <path d="M48 50 Q44 55 48 58 Q52 55 48 50 Z" fill="#0EA5E9" />
+      />
     </svg>
   )
 }

@@ -35,8 +35,9 @@ export default function Login() {
       <div className="w-full max-w-md">
         <div className="flex flex-col items-center mb-8">
           <BrandIcon size={64} className="mb-4 text-slate-900" />
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
-            VVS <span className="text-sky-500">FLOW</span>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
+            <span className="text-[#22C55E]">VVS</span>{' '}
+            <span className="text-[#2563EB]">FLOW</span>
           </h1>
           <p className="text-sm text-slate-500 mt-1">Log ind for at se dine sager</p>
           <span className="mt-2 inline-flex items-center gap-1 rounded-full bg-slate-100 text-slate-500 text-[10px] font-mono font-semibold px-2 py-0.5">
