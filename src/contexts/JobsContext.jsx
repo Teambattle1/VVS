@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useMemo, useState } from 'react'
 import { MOCK_JOBS } from '../lib/mockJobs.js'
 import { INITIAL_ITEMS } from '../lib/mockItems.js'
+import { PACKAGE_TEMPLATES } from '../lib/mockTemplates.js'
 import { jobTotal } from '../lib/pricing.js'
 
 const JobsContext = createContext(null)
@@ -275,15 +276,52 @@ export function JobsProvider({ children }) {
     )
   }
 
-  function addRoom(jobId, { name, room_type, width_cm, length_cm }) {
+  function addRoom(jobId, {
+    name,
+    room_type,
+    width_cm,
+    length_cm,
+    floorplan_mode = 'rectangle',
+    suggested_templates = [],
+  }) {
+    // Opret foreslåede pakker spredt ud over canvas-arealet
+    const packages = suggested_templates
+      .map((tid) => PACKAGE_TEMPLATES.find((t) => t.id === tid))
+      .filter(Boolean)
+      .map((tpl, idx, arr) => {
+        const cols = Math.max(2, Math.ceil(Math.sqrt(arr.length)))
+        const row = Math.floor(idx / cols)
+        const col = idx % cols
+        const xStep = 1 / (cols + 1)
+        const yStep = 1 / (Math.ceil(arr.length / cols) + 1)
+        return {
+          id: uid('pkg'),
+          template_id: tpl.id,
+          name: tpl.name,
+          lucide_icon: tpl.lucide_icon,
+          position_x: (col + 1) * xStep,
+          position_y: (row + 1) * yStep,
+          pricing_model: tpl.pricing_model,
+          fixed_price: tpl.base_price || 0,
+          hours: tpl.base_hours || 0,
+          hourly_rate: tpl.hourly_rate,
+          notes: '',
+          timeline_text: '',
+          status: 'draft',
+          items: [],
+        }
+      })
+
     const room = {
       id: uid('room'),
       name: name.trim(),
       room_type,
       width_cm: Number(width_cm) || 300,
       length_cm: Number(length_cm) || 300,
-      floorplan_mode: 'rectangle',
-      packages: [],
+      floorplan_mode,
+      floorplan_data: { lines: [] },
+      floorplan_image_url: null,
+      packages,
     }
     setJobs((prev) =>
       prev.map((j) =>
@@ -291,6 +329,72 @@ export function JobsProvider({ children }) {
       )
     )
     return room
+  }
+
+  function addDrawingLine(jobId, roomId, points) {
+    setJobs((prev) =>
+      prev.map((j) =>
+        j.id === jobId
+          ? {
+              ...j,
+              rooms: j.rooms.map((r) =>
+                r.id === roomId
+                  ? {
+                      ...r,
+                      floorplan_data: {
+                        ...(r.floorplan_data || {}),
+                        lines: [...(r.floorplan_data?.lines || []), { id: uid('ln'), points }],
+                      },
+                    }
+                  : r
+              ),
+            }
+          : j
+      )
+    )
+  }
+
+  function clearDrawing(jobId, roomId) {
+    setJobs((prev) =>
+      prev.map((j) =>
+        j.id === jobId
+          ? {
+              ...j,
+              rooms: j.rooms.map((r) =>
+                r.id === roomId
+                  ? {
+                      ...r,
+                      floorplan_data: { ...(r.floorplan_data || {}), lines: [] },
+                    }
+                  : r
+              ),
+            }
+          : j
+      )
+    )
+  }
+
+  function undoDrawing(jobId, roomId) {
+    setJobs((prev) =>
+      prev.map((j) =>
+        j.id === jobId
+          ? {
+              ...j,
+              rooms: j.rooms.map((r) =>
+                r.id === roomId
+                  ? {
+                      ...r,
+                      floorplan_data: {
+                        ...(r.floorplan_data || {}),
+                        lines: (r.floorplan_data?.lines || []).slice(0, -1),
+                      },
+                    }
+                  : r
+              ),
+            }
+          : j
+      )
+    )
   }
 
   function updateRoom(jobId, roomId, patch) {
@@ -517,6 +621,9 @@ export function JobsProvider({ children }) {
       addRoom,
       updateRoom,
       deleteRoom,
+      addDrawingLine,
+      clearDrawing,
+      undoDrawing,
       addPackage,
       updatePackage,
       deletePackage,

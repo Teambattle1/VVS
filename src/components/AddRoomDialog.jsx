@@ -1,24 +1,52 @@
 import { useState } from 'react'
-import { X, Ruler } from 'lucide-react'
+import { X, Ruler, Pencil, Upload, LayoutTemplate, Square } from 'lucide-react'
 import clsx from 'clsx'
 import { ROOM_TYPES } from '../lib/mockTemplates.js'
+import { ROOM_PRESETS } from '../lib/roomTemplates.js'
+
+const MODES = [
+  { value: 'rectangle', label: 'Rektangel', icon: Square, hint: 'Indtast bredde × længde' },
+  { value: 'template',  label: 'Skabelon',  icon: LayoutTemplate, hint: 'Vælg færdigt rum' },
+  { value: 'freehand',  label: 'Fri tegning', icon: Pencil, hint: 'Tegn rummet frit' },
+  { value: 'upload',    label: 'Upload',    icon: Upload, hint: 'Billede som baggrund' },
+]
 
 export default function AddRoomDialog({ onCreate, onClose }) {
+  const [mode, setMode] = useState('rectangle')
   const [name, setName] = useState('')
   const [roomType, setRoomType] = useState('bathroom')
   const [width, setWidth] = useState(300)
   const [length, setLength] = useState(400)
+  const [selectedPreset, setSelectedPreset] = useState(null)
 
-  const canSubmit = name.trim().length > 0 && width > 0 && length > 0
+  const canSubmit =
+    name.trim().length > 0 &&
+    ((mode !== 'template' && width > 0 && length > 0) ||
+      (mode === 'template' && selectedPreset))
 
   function handleSubmit(e) {
     e.preventDefault()
     if (!canSubmit) return
+
+    if (mode === 'template' && selectedPreset) {
+      const preset = ROOM_PRESETS.find((p) => p.id === selectedPreset)
+      onCreate({
+        name,
+        room_type: preset.room_type,
+        width_cm: preset.width_cm,
+        length_cm: preset.length_cm,
+        floorplan_mode: 'rectangle',
+        suggested_templates: preset.suggested_templates || [],
+      })
+      return
+    }
+
     onCreate({
       name,
       room_type: roomType,
       width_cm: Number(width),
       length_cm: Number(length),
+      floorplan_mode: mode,
     })
   }
 
@@ -26,12 +54,12 @@ export default function AddRoomDialog({ onCreate, onClose }) {
     <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-end md:items-center justify-center p-0 md:p-6">
       <form
         onSubmit={handleSubmit}
-        className="w-full md:max-w-lg bg-white rounded-t-3xl md:rounded-3xl shadow-xl max-h-[92vh] flex flex-col"
+        className="w-full md:max-w-2xl bg-white rounded-t-3xl md:rounded-3xl shadow-xl max-h-[92vh] flex flex-col"
       >
         <header className="px-5 py-4 border-b border-slate-100 flex items-center gap-3">
           <div className="flex-1">
             <h2 className="text-lg font-bold text-slate-900">Tilføj rum</h2>
-            <p className="text-xs text-slate-500">Giv rummet et navn og mål det op.</p>
+            <p className="text-xs text-slate-500">Vælg hvordan du vil skabe grundplanen.</p>
           </div>
           <button
             type="button"
@@ -43,7 +71,7 @@ export default function AddRoomDialog({ onCreate, onClose }) {
           </button>
         </header>
 
-        <div className="p-5 space-y-4 overflow-y-auto">
+        <div className="p-5 space-y-5 overflow-y-auto">
           <div>
             <label htmlFor="room-name" className="label">Navn på rum</label>
             <input
@@ -59,60 +87,148 @@ export default function AddRoomDialog({ onCreate, onClose }) {
           </div>
 
           <div>
-            <label className="label">Rumtype</label>
-            <div className="grid grid-cols-2 gap-2">
-              {ROOM_TYPES.map((t) => (
-                <button
-                  key={t.value}
-                  type="button"
-                  onClick={() => setRoomType(t.value)}
-                  className={clsx(
-                    'rounded-2xl border-2 px-3 py-2.5 text-sm font-semibold transition-colors text-left',
-                    roomType === t.value
-                      ? 'border-sky-500 bg-sky-50 text-sky-700'
-                      : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'
-                  )}
-                >
-                  {t.label}
-                </button>
-              ))}
+            <label className="label">Grundplan-tilstand</label>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+              {MODES.map((m) => {
+                const Icon = m.icon
+                const active = mode === m.value
+                return (
+                  <button
+                    key={m.value}
+                    type="button"
+                    onClick={() => setMode(m.value)}
+                    className={clsx(
+                      'rounded-2xl border-2 px-3 py-3 text-left transition-colors',
+                      active
+                        ? 'border-sky-500 bg-sky-50'
+                        : 'border-slate-200 bg-white hover:border-slate-300'
+                    )}
+                  >
+                    <Icon
+                      className={clsx('w-5 h-5 mb-2', active ? 'text-sky-600' : 'text-slate-500')}
+                      strokeWidth={2}
+                    />
+                    <div className={clsx('text-sm font-bold', active ? 'text-sky-900' : 'text-slate-900')}>
+                      {m.label}
+                    </div>
+                    <div className="text-[11px] text-slate-500">{m.hint}</div>
+                  </button>
+                )
+              })}
             </div>
           </div>
 
-          <div>
-            <label className="label flex items-center gap-1.5">
-              <Ruler className="w-4 h-4 text-slate-500" strokeWidth={2} />
-              Mål (cm) — rektangel
-            </label>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <input
-                  id="room-width"
-                  type="number"
-                  min="50"
-                  max="2000"
-                  className="input"
-                  value={width}
-                  onChange={(e) => setWidth(e.target.value)}
-                  required
-                />
-                <div className="text-xs text-slate-500 text-center mt-1">Bredde</div>
-              </div>
-              <div>
-                <input
-                  id="room-length"
-                  type="number"
-                  min="50"
-                  max="2000"
-                  className="input"
-                  value={length}
-                  onChange={(e) => setLength(e.target.value)}
-                  required
-                />
-                <div className="text-xs text-slate-500 text-center mt-1">Længde</div>
-              </div>
+          {mode === 'template' ? (
+            <div>
+              <label className="label">Vælg skabelon</label>
+              <ul className="space-y-2">
+                {ROOM_PRESETS.map((p) => {
+                  const type = ROOM_TYPES.find((t) => t.value === p.room_type)
+                  const active = selectedPreset === p.id
+                  return (
+                    <li key={p.id}>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedPreset(p.id)}
+                        className={clsx(
+                          'w-full text-left rounded-2xl border-2 px-4 py-3 transition-colors flex items-center gap-3',
+                          active
+                            ? 'border-sky-500 bg-sky-50'
+                            : 'border-slate-200 bg-white hover:border-slate-300'
+                        )}
+                      >
+                        <div className="w-12 h-12 rounded-2xl bg-white border border-slate-200 flex items-center justify-center flex-shrink-0 relative">
+                          <div
+                            className="border-2 border-slate-400 bg-slate-50"
+                            style={{
+                              width: Math.min(36, p.width_cm / 12),
+                              height: Math.min(36, p.length_cm / 12),
+                              borderRadius: 2,
+                            }}
+                          />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm font-bold text-slate-900">{p.label}</div>
+                          <div className="text-xs text-slate-500">
+                            {type?.label} · {p.width_cm} × {p.length_cm} cm · {p.hint}
+                          </div>
+                        </div>
+                        <div className="text-xs text-slate-400 flex-shrink-0">
+                          {p.suggested_templates?.length || 0} pakker foreslået
+                        </div>
+                      </button>
+                    </li>
+                  )
+                })}
+              </ul>
             </div>
-          </div>
+          ) : (
+            <>
+              <div>
+                <label className="label">Rumtype</label>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                  {ROOM_TYPES.map((t) => (
+                    <button
+                      key={t.value}
+                      type="button"
+                      onClick={() => setRoomType(t.value)}
+                      className={clsx(
+                        'rounded-2xl border-2 px-3 py-2.5 text-sm font-semibold transition-colors text-left',
+                        roomType === t.value
+                          ? 'border-sky-500 bg-sky-50 text-sky-700'
+                          : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'
+                      )}
+                    >
+                      {t.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="label flex items-center gap-1.5">
+                  <Ruler className="w-4 h-4 text-slate-500" strokeWidth={2} />
+                  Mål (cm)
+                </label>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <input
+                      type="number"
+                      min="50"
+                      max="2000"
+                      className="input"
+                      value={width}
+                      onChange={(e) => setWidth(e.target.value)}
+                      required
+                    />
+                    <div className="text-xs text-slate-500 text-center mt-1">Bredde</div>
+                  </div>
+                  <div>
+                    <input
+                      type="number"
+                      min="50"
+                      max="2000"
+                      className="input"
+                      value={length}
+                      onChange={(e) => setLength(e.target.value)}
+                      required
+                    />
+                    <div className="text-xs text-slate-500 text-center mt-1">Længde</div>
+                  </div>
+                </div>
+                {mode === 'upload' && (
+                  <p className="text-xs text-slate-500 mt-2">
+                    Du kan uploade et billede på næste trin.
+                  </p>
+                )}
+                {mode === 'freehand' && (
+                  <p className="text-xs text-slate-500 mt-2">
+                    Du kan tegne grundplanen på næste trin.
+                  </p>
+                )}
+              </div>
+            </>
+          )}
         </div>
 
         <footer className="p-4 border-t border-slate-100 flex gap-2">

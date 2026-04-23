@@ -1,6 +1,18 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useNavigate, useParams, Link } from 'react-router-dom'
-import { ArrowLeft, Plus, Trash2, Settings2 } from 'lucide-react'
+import {
+  ArrowLeft,
+  Plus,
+  Trash2,
+  Pencil,
+  Square,
+  Upload,
+  LayoutTemplate,
+  Undo2,
+  X,
+  ImagePlus,
+} from 'lucide-react'
+import clsx from 'clsx'
 import { useJobs } from '../contexts/JobsContext.jsx'
 import { roomTotal } from '../lib/pricing.js'
 import FloorplanCanvas from '../components/FloorplanCanvas.jsx'
@@ -8,6 +20,13 @@ import PackagePicker from '../components/PackagePicker.jsx'
 import PackageDetail from '../components/PackageDetail.jsx'
 import PriceSummary from '../components/PriceSummary.jsx'
 import LucideByName from '../components/LucideByName.jsx'
+
+const MODES = [
+  { value: 'rectangle', label: 'Rektangel', icon: Square },
+  { value: 'freehand',  label: 'Fri tegning', icon: Pencil },
+  { value: 'upload',    label: 'Billede', icon: Upload },
+  { value: 'template',  label: 'Skabelon', icon: LayoutTemplate },
+]
 
 export default function RoomEditor() {
   const { jobId, roomId } = useParams()
@@ -19,12 +38,17 @@ export default function RoomEditor() {
     updatePackage,
     updateRoom,
     deleteRoom,
+    addDrawingLine,
+    clearDrawing,
+    undoDrawing,
   } = useJobs()
 
   const [placing, setPlacing] = useState(false)
+  const [drawing, setDrawing] = useState(false)
   const [showPicker, setShowPicker] = useState(false)
   const [selectedPackageId, setSelectedPackageId] = useState(null)
   const [pendingTemplate, setPendingTemplate] = useState(null)
+  const fileInputRef = useRef(null)
 
   const job = getJob(jobId)
   const room = getRoom(jobId, roomId)
@@ -42,8 +66,12 @@ export default function RoomEditor() {
 
   const total = roomTotal(room)
   const selectedPackage = room.packages?.find((p) => p.id === selectedPackageId) || null
+  const isFreehand = room.floorplan_mode === 'freehand'
+  const isUpload = room.floorplan_mode === 'upload'
+  const hasDrawing = (room.floorplan_data?.lines?.length || 0) > 0
 
   function startPlacing() {
+    setDrawing(false)
     setShowPicker(true)
   }
 
@@ -72,6 +100,28 @@ export default function RoomEditor() {
     if (!confirm(`Slet rummet "${room.name}" og alle dets pakker?`)) return
     deleteRoom(job.id, room.id)
     navigate(`/jobs/${job.id}`, { replace: true })
+  }
+
+  function handleModeChange(nextMode) {
+    updateRoom(job.id, room.id, { floorplan_mode: nextMode })
+    setDrawing(false)
+    setPlacing(false)
+  }
+
+  function handleFileUpload(e) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = () => {
+      updateRoom(job.id, room.id, { floorplan_image_url: reader.result })
+    }
+    reader.readAsDataURL(file)
+    e.target.value = ''
+  }
+
+  function handleRemoveImage() {
+    if (!confirm('Fjern billede-baggrunden?')) return
+    updateRoom(job.id, room.id, { floorplan_image_url: null })
   }
 
   return (
@@ -110,48 +160,148 @@ export default function RoomEditor() {
 
       <main className="max-w-6xl mx-auto px-4 md:px-6 pt-4 md:pt-6 grid grid-cols-1 md:grid-cols-[1fr_320px] gap-5">
         <div className="space-y-4">
-          <div className="card p-4 flex items-center justify-between gap-3 flex-wrap">
-            <div className="flex items-center gap-2 text-sm">
-              <Settings2 className="w-4 h-4 text-slate-400" strokeWidth={2} />
-              <span className="text-slate-600">Bredde</span>
-              <input
-                type="number"
-                min="50"
-                className="w-20 rounded-xl border border-slate-200 px-2 py-1 text-sm text-center"
-                value={room.width_cm}
-                onChange={(e) =>
-                  updateRoom(job.id, room.id, { width_cm: Number(e.target.value) || 100 })
-                }
-              />
-              <span className="text-slate-600">×</span>
-              <input
-                type="number"
-                min="50"
-                className="w-20 rounded-xl border border-slate-200 px-2 py-1 text-sm text-center"
-                value={room.length_cm}
-                onChange={(e) =>
-                  updateRoom(job.id, room.id, { length_cm: Number(e.target.value) || 100 })
-                }
-              />
-              <span className="text-slate-500 text-xs">cm</span>
+          <div className="card p-3 md:p-4 space-y-3">
+            <div className="flex items-center gap-1.5 overflow-x-auto -mx-1 px-1">
+              {MODES.map((m) => {
+                const Icon = m.icon
+                const active = room.floorplan_mode === m.value
+                return (
+                  <button
+                    key={m.value}
+                    type="button"
+                    onClick={() => handleModeChange(m.value)}
+                    className={clsx(
+                      'flex items-center gap-1.5 rounded-2xl px-3 py-2 text-xs font-semibold whitespace-nowrap border-2 transition-colors',
+                      active
+                        ? 'border-sky-500 bg-sky-50 text-sky-700'
+                        : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
+                    )}
+                  >
+                    <Icon className="w-4 h-4" strokeWidth={2} />
+                    {m.label}
+                  </button>
+                )
+              })}
             </div>
-            <button
-              type="button"
-              onClick={startPlacing}
-              className="btn-primary"
-            >
-              <Plus className="w-5 h-5 text-white" strokeWidth={2.25} />
-              Placer pakke
-            </button>
+
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-3">
+              <div className="flex items-center gap-2 text-sm">
+                <span className="text-slate-600">Bredde</span>
+                <input
+                  type="number"
+                  min="50"
+                  className="w-20 rounded-xl border border-slate-200 px-2 py-1 text-sm text-center"
+                  value={room.width_cm}
+                  onChange={(e) =>
+                    updateRoom(job.id, room.id, { width_cm: Number(e.target.value) || 100 })
+                  }
+                />
+                <span className="text-slate-600">×</span>
+                <input
+                  type="number"
+                  min="50"
+                  className="w-20 rounded-xl border border-slate-200 px-2 py-1 text-sm text-center"
+                  value={room.length_cm}
+                  onChange={(e) =>
+                    updateRoom(job.id, room.id, { length_cm: Number(e.target.value) || 100 })
+                  }
+                />
+                <span className="text-slate-500 text-xs">cm</span>
+              </div>
+
+              <button
+                type="button"
+                onClick={startPlacing}
+                className="btn-primary"
+              >
+                <Plus className="w-5 h-5 text-white" strokeWidth={2.25} />
+                Placer pakke
+              </button>
+            </div>
+
+            {isFreehand && (
+              <div className="flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3">
+                <button
+                  type="button"
+                  onClick={() => setDrawing((d) => !d)}
+                  className={clsx(
+                    'inline-flex items-center gap-1.5 rounded-2xl px-3 py-2 text-sm font-semibold border-2 min-h-[40px]',
+                    drawing
+                      ? 'border-sky-500 bg-sky-500 text-white'
+                      : 'border-sky-500 bg-white text-sky-700 hover:bg-sky-50'
+                  )}
+                >
+                  <Pencil className="w-4 h-4" strokeWidth={2} />
+                  {drawing ? 'Stop tegning' : 'Start tegning'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => undoDrawing(job.id, room.id)}
+                  disabled={!hasDrawing}
+                  className="btn-secondary disabled:opacity-40"
+                >
+                  <Undo2 className="w-4 h-4 text-slate-700" strokeWidth={2} />
+                  Fortryd
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!hasDrawing) return
+                    if (confirm('Slet alle tegnede streger?')) clearDrawing(job.id, room.id)
+                  }}
+                  disabled={!hasDrawing}
+                  className="text-sm text-rose-600 hover:text-rose-700 font-semibold disabled:opacity-40 inline-flex items-center gap-1 px-2"
+                >
+                  <X className="w-4 h-4" strokeWidth={2} />
+                  Ryd
+                </button>
+              </div>
+            )}
+
+            {isUpload && (
+              <div className="flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  onChange={handleFileUpload}
+                  className="hidden"
+                />
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="btn-secondary"
+                >
+                  <ImagePlus className="w-4 h-4 text-slate-700" strokeWidth={2} />
+                  {room.floorplan_image_url ? 'Skift billede' : 'Vælg billede'}
+                </button>
+                {room.floorplan_image_url && (
+                  <button
+                    type="button"
+                    onClick={handleRemoveImage}
+                    className="text-sm text-rose-600 hover:text-rose-700 font-semibold inline-flex items-center gap-1 px-2"
+                  >
+                    <X className="w-4 h-4" strokeWidth={2} />
+                    Fjern
+                  </button>
+                )}
+                <span className="text-xs text-slate-500 ml-auto">
+                  Tip: Du kan tage billede direkte med kameraet.
+                </span>
+              </div>
+            )}
           </div>
 
           <FloorplanCanvas
             room={room}
             placing={placing}
+            drawing={drawing}
             selectedPackageId={selectedPackageId}
             onPlace={handlePlacedAt}
             onSelectPackage={setSelectedPackageId}
             onMovePackage={handleMove}
+            onAddLine={(points) => addDrawingLine(job.id, room.id, points)}
           />
 
           {placing && (
@@ -167,6 +317,12 @@ export default function RoomEditor() {
               >
                 Annuller
               </button>
+            </div>
+          )}
+
+          {drawing && (
+            <div className="flex items-center justify-between bg-sky-50 border border-sky-200 rounded-2xl px-4 py-3 text-sm text-sky-900">
+              <span>Tegn rummets omrids eller detaljer. Tryk &quot;Stop tegning&quot; når du er færdig.</span>
             </div>
           )}
         </div>
