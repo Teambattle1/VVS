@@ -176,7 +176,7 @@ export default function AdminSettings() {
             type="text"
           />
         </Field>
-        <div className="grid grid-cols-2 gap-3">
+        <div>
           <Field label="CVR">
             <div className="flex gap-2">
               <div className="flex-1">
@@ -212,14 +212,6 @@ export default function AdminSettings() {
             <p className="text-[11px] text-slate-500 mt-1">
               Indtast 8-cifret CVR-nummer og klik &quot;Slå op&quot; for at hente adresse + kontakt automatisk.
             </p>
-          </Field>
-          <Field label="Abonnement">
-            <input
-              type="text"
-              className="input bg-slate-50"
-              value={`${(org.subscription_tier || 'trial').toUpperCase()} · ${org.subscription_status || 'active'}`}
-              disabled
-            />
           </Field>
         </div>
         <Field label="Adresse">
