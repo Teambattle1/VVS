@@ -1,11 +1,41 @@
 import { useState } from 'react'
-import { X, Plus, Trash2, Clock, StickyNote, CalendarClock, Camera } from 'lucide-react'
+import {
+  X,
+  Plus,
+  Trash2,
+  Clock,
+  StickyNote,
+  CalendarClock,
+  Camera,
+  Circle as CircleIcon,
+  Square as SquareIcon,
+  Diamond,
+  Palette,
+} from 'lucide-react'
 import clsx from 'clsx'
 import { useJobs } from '../contexts/JobsContext.jsx'
 import { formatDKK, packageTotal, packageLaborTotal, packageItemsTotal } from '../lib/pricing.js'
 import LucideByName from './LucideByName.jsx'
 import ItemSearch from './ItemSearch.jsx'
 import PhotoGallery from './PhotoGallery.jsx'
+
+const SHAPES = [
+  { value: 'circle',  label: 'Cirkel',  icon: CircleIcon },
+  { value: 'rounded', label: 'Rundet',  icon: SquareIcon, stroke: 1.5 },
+  { value: 'square',  label: 'Firkant', icon: SquareIcon },
+  { value: 'diamond', label: 'Rombe',   icon: Diamond },
+]
+
+const MARKER_COLORS = [
+  '#E11D48', // rose
+  '#0EA5E9', // sky
+  '#059669', // emerald
+  '#F59E0B', // amber
+  '#7C3AED', // violet
+  '#EA580C', // orange
+  '#0F172A', // slate
+  '#EC4899', // pink
+]
 
 const MODELS = [
   { value: 'fixed', label: 'Fast pris' },
@@ -73,6 +103,67 @@ export default function PackageDetail({ jobId, roomId, pkg, onClose }) {
         </header>
 
         <div className="flex-1 overflow-y-auto p-5 space-y-5">
+          <section>
+            <h3 className="label flex items-center gap-1.5 mb-2">
+              <Palette className="w-4 h-4 text-slate-500" strokeWidth={2} />
+              Markør på grundplan
+            </h3>
+            <div className="space-y-2">
+              <div>
+                <div className="text-[11px] text-slate-500 mb-1">Form</div>
+                <div className="grid grid-cols-4 gap-1.5">
+                  {SHAPES.map((s) => {
+                    const Icon = s.icon
+                    const active = (pkg.shape || 'circle') === s.value
+                    return (
+                      <button
+                        key={s.value}
+                        type="button"
+                        onClick={() => setField({ shape: s.value })}
+                        className={clsx(
+                          'rounded-2xl border-2 p-2.5 flex flex-col items-center gap-1 transition-colors min-h-[60px]',
+                          active
+                            ? 'border-sky-500 bg-sky-50 text-sky-700'
+                            : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
+                        )}
+                      >
+                        <Icon className="w-5 h-5" strokeWidth={s.stroke || 2} />
+                        <span className="text-[10px] font-semibold">{s.label}</span>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+              <div>
+                <div className="text-[11px] text-slate-500 mb-1">Farve</div>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {MARKER_COLORS.map((c) => (
+                    <button
+                      key={c}
+                      type="button"
+                      onClick={() => setField({ color: c })}
+                      className={clsx(
+                        'w-8 h-8 rounded-xl border-2 transition-transform',
+                        (pkg.color || '#E11D48').toLowerCase() === c.toLowerCase()
+                          ? 'border-slate-900 scale-110 shadow-md'
+                          : 'border-slate-200 hover:scale-105'
+                      )}
+                      style={{ backgroundColor: c }}
+                      aria-label={c}
+                    />
+                  ))}
+                  <input
+                    type="color"
+                    value={pkg.color || '#E11D48'}
+                    onChange={(e) => setField({ color: e.target.value })}
+                    className="w-11 h-8 rounded-xl border border-slate-200 cursor-pointer ml-1"
+                    title="Brugerdefineret farve"
+                  />
+                </div>
+              </div>
+            </div>
+          </section>
+
           <section>
             <h3 className="label mb-2">Prismodel</h3>
             <div className="grid grid-cols-3 gap-1.5">

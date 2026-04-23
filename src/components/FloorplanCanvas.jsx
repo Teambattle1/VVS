@@ -1,15 +1,18 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Stage, Layer, Rect, Line, Group, Circle, Text, Image as KonvaImage } from 'react-konva'
+import { Stage, Layer, Rect, Line, Image as KonvaImage, Text as KonvaText } from 'react-konva'
+import clsx from 'clsx'
 import { packageTotal, formatDKK } from '../lib/pricing.js'
+import LucideByName from './LucideByName.jsx'
 
 // ============================================
-// Floorplan canvas med alle 4 modes:
-// - rectangle: væg-outline + gitter
-// - freehand: fri tegning med pen
-// - upload:    billede som baggrund
-// - template:  samme som rectangle
-// Placerede pakker vises som interaktive Konva.Group.
+// Hybrid floorplan-view:
+// - Konva bundlag: rum-outline, gitter, billede, tegnede linjer
+// - HTML overlay: pakke-markoerer med Lucide-ikon + titel + pris
+// Shape + farve pr. pakke via pkg.shape / pkg.color
 // ============================================
+
+const DEFAULT_COLOR = '#E11D48' // roed (matcher brand)
+
 export default function FloorplanCanvas({
   room,
   placing = false,
@@ -25,25 +28,22 @@ export default function FloorplanCanvas({
   const [size, setSize] = useState({ width: 600, height: 400 })
   const [bgImage, setBgImage] = useState(null)
   const [currentLine, setCurrentLine] = useState(null)
+  const [draggingId, setDraggingId] = useState(null)
   const isDrawingRef = useRef(false)
+  const dragStartRef = useRef(null)
 
-  // Responsiv størrelse baseret på rummets proportioner
   useEffect(() => {
     function measure() {
       if (!wrapRef.current) return
       const { width } = wrapRef.current.getBoundingClientRect()
       const ratio = room.length_cm / room.width_cm
       const height = Math.min(Math.max(width * ratio, 280), 620)
-      // Undgå ResizeObserver-loop: skip hvis aendringen er under 1px
       setSize((prev) => {
-        if (Math.abs(prev.width - width) < 1 && Math.abs(prev.height - height) < 1) {
-          return prev
-        }
+        if (Math.abs(prev.width - width) < 1 && Math.abs(prev.height - height) < 1) return prev
         return { width, height }
       })
     }
     measure()
-    // rAF-throttle saa vi ikke fyrer resize-observer-callback igen indenfor samme frame
     let rafId = null
     const ro = new ResizeObserver(() => {
       if (rafId) return
@@ -59,7 +59,6 @@ export default function FloorplanCanvas({
     }
   }, [room.length_cm, room.width_cm])
 
-  // Load background image if upload mode
   useEffect(() => {
     if (room.floorplan_mode !== 'upload' || !room.floorplan_image_url) {
       setBgImage(null)
@@ -90,7 +89,6 @@ export default function FloorplanCanvas({
     return lines
   }, [innerW, innerH])
 
-  // Konva bg image dimensioner
   const bgDims = useMemo(() => {
     if (!bgImage) return null
     const imgRatio = bgImage.width / bgImage.height
@@ -111,6 +109,19 @@ export default function FloorplanCanvas({
     }
   }, [bgImage, innerW, innerH])
 
+  function normalizeX(x) { return (x - padding) / innerW }
+  function normalizeY(y) { return (y - padding) / innerH }
+  function denormalizeX(nx) { return padding + nx * innerW }
+  function denormalizeY(ny) { return padding + ny * innerH }
+  function denormalizePoints(points) {
+    const out = []
+    for (let i = 0; i < points.length; i += 2) {
+      out.push(denormalizeX(points[i]), denormalizeY(points[i + 1]))
+    }
+    return out
+  }
+
+  // Konva stage event-handling: placering + tegning
   function handleStageMouseDown(e) {
     if (readOnly) return
     if (drawing) {
@@ -146,25 +157,32 @@ export default function FloorplanCanvas({
     setCurrentLine(null)
   }
 
-  function normalizeX(x) {
-    return (x - padding) / innerW
-  }
-  function normalizeY(y) {
-    return (y - padding) / innerH
-  }
-  function denormalizeX(nx) {
-    return padding + nx * innerW
-  }
-  function denormalizeY(ny) {
-    return padding + ny * innerH
+  // HTML marker drag-handling
+  function startMarkerDrag(e, pkg) {
+    if (readOnly || drawing || placing) return
+    e.stopPropagation()
+    const target = e.currentTarget
+    target.setPointerCapture?.(e.pointerId)
+    setDraggingId(pkg.id)
+    dragStartRef.current = { id: pkg.id }
   }
 
-  function denormalizePoints(points) {
-    const out = []
-    for (let i = 0; i < points.length; i += 2) {
-      out.push(denormalizeX(points[i]), denormalizeY(points[i + 1]))
-    }
-    return out
+  function moveMarkerDrag(e, pkg) {
+    if (draggingId !== pkg.id || !wrapRef.current) return
+    const rect = wrapRef.current.getBoundingClientRect()
+    const px = e.clientX - rect.left
+    const py = e.clientY - rect.top
+    const x = Math.max(0, Math.min(1, (px - padding) / innerW))
+    const y = Math.max(0, Math.min(1, (py - padding) / innerH))
+    onMovePackage?.(pkg.id, { x, y })
+  }
+
+  function endMarkerDrag(e, pkg) {
+    if (draggingId !== pkg.id) return
+    const target = e.currentTarget
+    target.releasePointerCapture?.(e.pointerId)
+    setDraggingId(null)
+    dragStartRef.current = null
   }
 
   const activeHint = drawing
@@ -176,13 +194,14 @@ export default function FloorplanCanvas({
   return (
     <div
       ref={wrapRef}
-      className={`relative w-full rounded-2xl overflow-hidden border-2 ${
+      className={clsx(
+        'relative w-full rounded-2xl overflow-hidden border-2 bg-slate-50',
         placing || drawing ? 'border-sky-400 border-dashed' : 'border-slate-200'
-      } bg-slate-50`}
+      )}
       style={{ minHeight: 280, touchAction: drawing ? 'none' : 'auto' }}
     >
       {activeHint && (
-        <div className="absolute top-3 left-1/2 -translate-x-1/2 z-10 bg-sky-500 text-white text-xs font-semibold rounded-full px-3 py-1.5 shadow-md pointer-events-none">
+        <div className="absolute top-3 left-1/2 -translate-x-1/2 z-20 bg-sky-500 text-white text-xs font-semibold rounded-full px-3 py-1.5 shadow-md pointer-events-none">
           {activeHint}
         </div>
       )}
@@ -198,17 +217,7 @@ export default function FloorplanCanvas({
         onTouchEnd={handleStageMouseUp}
       >
         <Layer listening={false}>
-          {/* Hvid baggrund */}
-          <Rect
-            x={padding}
-            y={padding}
-            width={innerW}
-            height={innerH}
-            fill="#ffffff"
-            cornerRadius={6}
-          />
-
-          {/* Upload: billede som baggrund */}
+          <Rect x={padding} y={padding} width={innerW} height={innerH} fill="#ffffff" cornerRadius={6} />
           {bgImage && bgDims && (
             <KonvaImage
               image={bgImage}
@@ -219,28 +228,11 @@ export default function FloorplanCanvas({
               opacity={0.9}
             />
           )}
-
-          {/* Gitter hvis aktivt */}
-          {showGrid &&
-            gridLines.map((l) => (
-              <Line key={l.key} points={l.points} stroke="#e2e8f0" strokeWidth={1} />
-            ))}
-
-          {/* Rektangel-outline */}
+          {showGrid && gridLines.map((l) => <Line key={l.key} points={l.points} stroke="#e2e8f0" strokeWidth={1} />)}
           {showRectangleBox && (
-            <Rect
-              x={padding}
-              y={padding}
-              width={innerW}
-              height={innerH}
-              stroke="#94a3b8"
-              strokeWidth={3}
-              cornerRadius={6}
-            />
+            <Rect x={padding} y={padding} width={innerW} height={innerH} stroke="#94a3b8" strokeWidth={3} cornerRadius={6} />
           )}
-
-          {/* Dimensioner */}
-          <Text
+          <KonvaText
             text={`${room.width_cm} × ${room.length_cm} cm`}
             x={padding + 8}
             y={padding + 8}
@@ -251,7 +243,6 @@ export default function FloorplanCanvas({
           />
         </Layer>
 
-        {/* Gemte tegnede linjer */}
         <Layer listening={false}>
           {(room.floorplan_data?.lines || []).map((l) => (
             <Line
@@ -275,114 +266,120 @@ export default function FloorplanCanvas({
             />
           )}
         </Layer>
-
-        <Layer>
-          {room.packages?.map((pkg) => (
-            <PackageMarker
-              key={pkg.id}
-              pkg={pkg}
-              padding={padding}
-              innerW={innerW}
-              innerH={innerH}
-              selected={pkg.id === selectedPackageId}
-              readOnly={readOnly || drawing}
-              onSelect={() => onSelectPackage?.(pkg.id)}
-              onDragEnd={(pos) => onMovePackage?.(pkg.id, pos)}
-            />
-          ))}
-        </Layer>
       </Stage>
+
+      {/* HTML overlay for pakke-markoerer */}
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{ padding: `${padding}px` }}
+      >
+        {(room.packages || []).map((pkg) => (
+          <PackageMarker
+            key={pkg.id}
+            pkg={pkg}
+            innerW={innerW}
+            innerH={innerH}
+            selected={pkg.id === selectedPackageId}
+            dragging={draggingId === pkg.id}
+            disabled={readOnly || drawing || placing}
+            onSelect={() => onSelectPackage?.(pkg.id)}
+            onPointerDown={(e) => startMarkerDrag(e, pkg)}
+            onPointerMove={(e) => moveMarkerDrag(e, pkg)}
+            onPointerUp={(e) => endMarkerDrag(e, pkg)}
+            onPointerCancel={(e) => endMarkerDrag(e, pkg)}
+          />
+        ))}
+      </div>
     </div>
   )
 }
 
-function PackageMarker({ pkg, padding, innerW, innerH, selected, readOnly, onSelect, onDragEnd }) {
-  const px = padding + pkg.position_x * innerW
-  const py = padding + pkg.position_y * innerH
+function PackageMarker({
+  pkg,
+  innerW,
+  innerH,
+  selected,
+  dragging,
+  disabled,
+  onSelect,
+  onPointerDown,
+  onPointerMove,
+  onPointerUp,
+  onPointerCancel,
+}) {
+  const color = pkg.color || DEFAULT_COLOR
+  const shape = pkg.shape || 'circle'
   const total = packageTotal(pkg)
-  const priceText = formatDKK(total)
+  const px = pkg.position_x * innerW
+  const py = pkg.position_y * innerH
 
-  function handleDragEnd(e) {
-    const { x, y } = e.target.position()
-    const nx = (x - padding) / innerW
-    const ny = (y - padding) / innerH
-    const clamped = {
-      x: Math.max(0, Math.min(1, nx)),
-      y: Math.max(0, Math.min(1, ny)),
-    }
-    onDragEnd?.(clamped)
-  }
+  const shapeRadius =
+    shape === 'circle' ? 9999 : shape === 'rounded' ? 14 : shape === 'diamond' ? 4 : 0
+  const transform = shape === 'diamond' ? 'rotate(45deg)' : undefined
 
   return (
-    <Group
-      x={px}
-      y={py}
-      draggable={!readOnly}
-      onDragEnd={handleDragEnd}
+    <div
+      className={clsx(
+        'absolute flex flex-col items-center pointer-events-auto select-none transition-transform',
+        dragging ? 'cursor-grabbing z-30' : 'cursor-grab z-10',
+        !disabled && !selected && 'hover:scale-105'
+      )}
+      style={{
+        left: `${px}px`,
+        top: `${py}px`,
+        transform: 'translate(-50%, -50%)',
+      }}
       onClick={(e) => {
-        e.cancelBubble = true
-        onSelect?.()
+        e.stopPropagation()
+        if (!dragging) onSelect?.()
       }}
-      onTap={(e) => {
-        e.cancelBubble = true
-        onSelect?.()
+      onPointerDown={(e) => {
+        e.stopPropagation()
+        onPointerDown?.(e)
       }}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+      onPointerCancel={onPointerCancel}
     >
-      <Circle
-        radius={24}
-        fill={selected ? '#0EA5E9' : '#ffffff'}
-        stroke={selected ? '#0284C7' : '#0EA5E9'}
-        strokeWidth={selected ? 3 : 2}
-        shadowColor="#0EA5E9"
-        shadowBlur={selected ? 14 : 6}
-        shadowOpacity={selected ? 0.35 : 0.2}
-      />
-      <Text
-        text={(pkg.lucide_icon || 'P').charAt(0).toUpperCase()}
-        x={-12}
-        y={-10}
-        width={24}
-        height={24}
-        align="center"
-        verticalAlign="middle"
-        fontStyle="800"
-        fontSize={16}
-        fill={selected ? '#ffffff' : '#0EA5E9'}
-        fontFamily="Manrope, system-ui, sans-serif"
-      />
-      <PriceChip text={priceText} />
-    </Group>
-  )
-}
+      <div
+        className="flex items-center justify-center shadow-md transition-all"
+        style={{
+          width: 44,
+          height: 44,
+          borderRadius: shapeRadius,
+          backgroundColor: selected ? color : '#ffffff',
+          border: `2.5px solid ${color}`,
+          transform,
+          boxShadow: selected
+            ? `0 0 0 4px ${color}33, 0 4px 12px ${color}55`
+            : `0 2px 8px ${color}33`,
+        }}
+      >
+        <div style={{ transform: shape === 'diamond' ? 'rotate(-45deg)' : undefined }}>
+          <LucideByName
+            name={pkg.lucide_icon}
+            strokeWidth={2.25}
+            style={{
+              width: 22,
+              height: 22,
+              color: selected ? '#ffffff' : color,
+            }}
+          />
+        </div>
+      </div>
 
-function PriceChip({ text }) {
-  const paddingX = 8
-  const charWidth = 7
-  const width = Math.max(52, text.length * charWidth + paddingX * 2)
-  const height = 20
-  return (
-    <Group y={30} x={-width / 2}>
-      <Rect
-        width={width}
-        height={height}
-        cornerRadius={10}
-        fill="#0F172A"
-        shadowColor="#0F172A"
-        shadowBlur={6}
-        shadowOpacity={0.18}
-      />
-      <Text
-        text={text}
-        width={width}
-        height={height}
-        align="center"
-        verticalAlign="middle"
-        fontSize={11}
-        fontStyle="700"
-        fill="#ffffff"
-        fontFamily="Manrope, system-ui, sans-serif"
-        y={3}
-      />
-    </Group>
+      <div className="mt-1 px-2 py-0.5 rounded-lg bg-white/95 shadow-sm max-w-[120px] text-center">
+        <div className="text-[10px] font-bold text-slate-900 leading-tight truncate">
+          {pkg.name}
+        </div>
+      </div>
+
+      <div
+        className="mt-0.5 px-2 py-0.5 rounded-full text-white text-[10px] font-bold shadow-sm whitespace-nowrap"
+        style={{ backgroundColor: '#0F172A' }}
+      >
+        {formatDKK(total)}
+      </div>
+    </div>
   )
 }
