@@ -6,6 +6,7 @@ import { jobTotal } from '../lib/pricing.js'
 import { hasSupabase } from '../lib/supabase.js'
 import * as repo from '../lib/jobsRepo.js'
 import { useAuth } from './AuthContext.jsx'
+import { useToast } from './ToastContext.jsx'
 
 const JobsContext = createContext(null)
 
@@ -90,6 +91,7 @@ function seedJobs() {
 
 export function JobsProvider({ children }) {
   const { user } = useAuth()
+  const toast = useToast()
   const [jobs, setJobs] = useState(() => (hasSupabase ? [] : seedJobs()))
   const [items, setItems] = useState(hasSupabase ? [] : INITIAL_ITEMS)
   const [templates, setTemplates] = useState(() =>
@@ -99,6 +101,13 @@ export function JobsProvider({ children }) {
   const [dbUserId, setDbUserId] = useState(null)
   const [dbLoading, setDbLoading] = useState(false)
   const supabaseModeRef = useRef(hasSupabase)
+
+  function reportDbError(where, err) {
+    // eslint-disable-next-line no-console
+    console.warn(`[JobsContext] ${where}:`, err)
+    const msg = err?.message || String(err)
+    toast?.error?.(`${where}: ${msg}`, { duration: 6000 })
+  }
 
   const recomputeJob = useCallback((job) => ({
     ...job,
@@ -221,11 +230,13 @@ export function JobsProvider({ children }) {
             createdBy: dbUserId,
           })
           await refresh()
+          toast?.success?.('Sag gemt i DB')
         } catch (err) {
-          // eslint-disable-next-line no-console
-          console.warn('[JobsContext] addJob DB-write fejlede:', err.message)
+          reportDbError('Kunne ikke gemme sag', err)
         }
       })()
+    } else if (hasSupabase && !orgId) {
+      toast?.error?.('Bruger er ikke koblet til en org (vvs_users mangler)', { duration: 8000 })
     }
     return newJob
   }
@@ -330,8 +341,7 @@ export function JobsProvider({ children }) {
           }
           await refresh()
         } catch (err) {
-          // eslint-disable-next-line no-console
-          console.warn('[JobsContext] addRoom DB-write fejlede:', err.message)
+          reportDbError('Kunne ikke gemme rum', err)
         }
       })()
     }
