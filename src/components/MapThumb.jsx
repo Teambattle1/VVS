@@ -1,7 +1,7 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { MapContainer, TileLayer, Marker, useMap, useMapEvents } from 'react-leaflet'
 import L from 'leaflet'
-import { X, ExternalLink, MapPin, Maximize2, Plus as PlusIcon, Minus } from 'lucide-react'
+import { X, ExternalLink, MapPin, Maximize2, Plus as PlusIcon, Minus, Loader2 } from 'lucide-react'
 import clsx from 'clsx'
 import 'leaflet/dist/leaflet.css'
 
@@ -68,19 +68,73 @@ function CustomZoomControl() {
   )
 }
 
+// Geocode-cache pr. adresse saa vi ikke fetcher igen for samme string
+const GEO_CACHE = new Map()
+
+async function geocodeAddress(address) {
+  if (!address) return null
+  if (GEO_CACHE.has(address)) return GEO_CACHE.get(address)
+  try {
+    const res = await fetch(
+      `https://api.dataforsyningen.dk/autocomplete?type=adresse&q=${encodeURIComponent(address)}&per_side=1&fuzzy&srid=4326`
+    )
+    if (!res.ok) return null
+    const data = await res.json()
+    const hit = data?.[0]?.adresse || data?.[0]?.data
+    if (hit?.x && hit?.y) {
+      const coords = { lat: Number(hit.y), lon: Number(hit.x) }
+      GEO_CACHE.set(address, coords)
+      return coords
+    }
+  } catch {
+    /* ignore */
+  }
+  GEO_CACHE.set(address, null)
+  return null
+}
+
 export default function MapThumb({ lat, lon, address, size = 'md' }) {
   const [full, setFull] = useState(false)
+  const [resolvedCoords, setResolvedCoords] = useState(null)
+  const [geocoding, setGeocoding] = useState(false)
 
-  if (!lat || !lon) {
+  // Geocode adressen hvis vi ikke har lat/lon men har en adresse
+  useEffect(() => {
+    if (lat && lon) {
+      setResolvedCoords(null)
+      return
+    }
+    if (!address || address.trim().length < 5) return
+    setGeocoding(true)
+    let cancelled = false
+    geocodeAddress(address).then((c) => {
+      if (!cancelled) {
+        setResolvedCoords(c)
+        setGeocoding(false)
+      }
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [lat, lon, address])
+
+  const finalLat = lat || resolvedCoords?.lat
+  const finalLon = lon || resolvedCoords?.lon
+
+  if (!finalLat || !finalLon) {
     return (
       <div
         className={clsx(
           'flex items-center justify-center rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50 text-slate-400',
           size === 'sm' ? 'w-16 h-16' : 'w-32 h-24 md:w-40 md:h-28'
         )}
-        title="Intet kort — adresse mangler koordinater"
+        title={geocoding ? 'Finder adressen…' : 'Intet kort — adresse ikke fundet'}
       >
-        <MapPin className="w-6 h-6" strokeWidth={2} />
+        {geocoding ? (
+          <Loader2 className="w-6 h-6 animate-spin" strokeWidth={2} />
+        ) : (
+          <MapPin className="w-6 h-6" strokeWidth={2} />
+        )}
       </div>
     )
   }
@@ -103,7 +157,7 @@ export default function MapThumb({ lat, lon, address, size = 'md' }) {
       >
         <div className="absolute inset-0 pointer-events-none">
           <MapContainer
-            center={[lat, lon]}
+            center={[finalLat, finalLon]}
             zoom={thumbZoom}
             zoomControl={false}
             attributionControl={false}
@@ -115,7 +169,7 @@ export default function MapThumb({ lat, lon, address, size = 'md' }) {
             style={{ width: '100%', height: '100%', background: '#e2e8f0' }}
           >
             <TileLayer url="https://tile.openstreetmap.org/{z}/{x}/{y}.png" />
-            <Marker position={[lat, lon]} icon={customPin('#E11D48')} />
+            <Marker position={[finalLat, finalLon]} icon={customPin('#E11D48')} />
           </MapContainer>
         </div>
         <div className="absolute bottom-1.5 left-1.5 bg-slate-900/85 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-md pointer-events-none z-[500]">
@@ -126,7 +180,7 @@ export default function MapThumb({ lat, lon, address, size = 'md' }) {
         </div>
       </button>
 
-      {full && <FullMap lat={lat} lon={lon} address={address} onClose={() => setFull(false)} />}
+      {full && <FullMap lat={finalLat} lon={finalLon} address={address} onClose={() => setFull(false)} />}
     </>
   )
 }
