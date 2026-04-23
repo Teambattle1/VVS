@@ -394,6 +394,42 @@ export async function deleteItem(itemId) {
 }
 
 // ============================================
+// Room templates (bruger-definerede rum-skabeloner pr. org)
+// ============================================
+export async function loadRoomTemplates(orgId) {
+  const { data, error } = await supabase
+    .from('vvs_room_templates')
+    .select('*')
+    .eq('organization_id', orgId)
+    .order('created_at', { ascending: false })
+  if (error) throw error
+  return data || []
+}
+
+export async function createRoomTemplate({ orgId, name, roomType, widthCm, lengthCm, packages, createdBy }) {
+  const { data, error } = await supabase
+    .from('vvs_room_templates')
+    .insert({
+      organization_id: orgId,
+      name,
+      room_type: roomType,
+      width_cm: widthCm,
+      length_cm: lengthCm,
+      packages: packages || [],
+      created_by: createdBy,
+    })
+    .select()
+    .single()
+  if (error) throw error
+  return data
+}
+
+export async function deleteRoomTemplate(templateId) {
+  const { error } = await supabase.from('vvs_room_templates').delete().eq('id', templateId)
+  if (error) throw error
+}
+
+// ============================================
 // Package templates (læs globale + org-specifikke)
 // ============================================
 export async function loadTemplates(orgId) {

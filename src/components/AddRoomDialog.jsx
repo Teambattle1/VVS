@@ -1,8 +1,9 @@
 import { useState } from 'react'
-import { X, Ruler, Pencil, Upload, LayoutTemplate, Square } from 'lucide-react'
+import { X, Ruler, Pencil, Upload, LayoutTemplate, Square, Trash2, Sparkles } from 'lucide-react'
 import clsx from 'clsx'
 import { ROOM_TYPES } from '../lib/mockTemplates.js'
 import { ROOM_PRESETS } from '../lib/roomTemplates.js'
+import { useJobs } from '../contexts/JobsContext.jsx'
 
 const MODES = [
   { value: 'rectangle', label: 'Rektangel', icon: Square, hint: 'Indtast bredde × længde' },
@@ -12,23 +13,37 @@ const MODES = [
 ]
 
 export default function AddRoomDialog({ onCreate, onClose }) {
+  const { roomTemplates, deleteRoomTemplate } = useJobs()
   const [mode, setMode] = useState('rectangle')
   const [name, setName] = useState('')
   const [roomType, setRoomType] = useState('bathroom')
   const [width, setWidth] = useState(300)
   const [length, setLength] = useState(400)
   const [selectedPreset, setSelectedPreset] = useState(null)
+  const [selectedCustom, setSelectedCustom] = useState(null)
 
   const canSubmit =
     name.trim().length > 0 &&
     ((mode !== 'template' && width > 0 && length > 0) ||
-      (mode === 'template' && selectedPreset))
+      (mode === 'template' && (selectedPreset || selectedCustom)))
 
   function handleSubmit(e) {
     e.preventDefault()
     if (!canSubmit) return
 
-    if (mode === 'template' && selectedPreset) {
+    if (mode === 'template') {
+      if (selectedCustom) {
+        const tpl = roomTemplates.find((t) => t.id === selectedCustom)
+        onCreate({
+          name,
+          room_type: tpl.room_type,
+          width_cm: tpl.width_cm,
+          length_cm: tpl.length_cm,
+          floorplan_mode: 'rectangle',
+          preset_packages: tpl.packages || [],
+        })
+        return
+      }
       const preset = ROOM_PRESETS.find((p) => p.id === selectedPreset)
       onCreate({
         name,
@@ -119,48 +134,108 @@ export default function AddRoomDialog({ onCreate, onClose }) {
           </div>
 
           {mode === 'template' ? (
-            <div>
-              <label className="label">Vælg skabelon</label>
-              <ul className="space-y-2">
-                {ROOM_PRESETS.map((p) => {
-                  const type = ROOM_TYPES.find((t) => t.value === p.room_type)
-                  const active = selectedPreset === p.id
-                  return (
-                    <li key={p.id}>
-                      <button
-                        type="button"
-                        onClick={() => setSelectedPreset(p.id)}
-                        className={clsx(
-                          'w-full text-left rounded-2xl border-2 px-4 py-3 transition-colors flex items-center gap-3',
-                          active
-                            ? 'border-sky-500 bg-sky-50'
-                            : 'border-slate-200 bg-white hover:border-slate-300'
-                        )}
-                      >
-                        <div className="w-12 h-12 rounded-2xl bg-white border border-slate-200 flex items-center justify-center flex-shrink-0 relative">
-                          <div
-                            className="border-2 border-slate-400 bg-slate-50"
-                            style={{
-                              width: Math.min(36, p.width_cm / 12),
-                              height: Math.min(36, p.length_cm / 12),
-                              borderRadius: 2,
+            <div className="space-y-3">
+              {roomTemplates.length > 0 && (
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <Sparkles className="w-4 h-4 text-amber-500" strokeWidth={2} />
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                      Dine egne skabeloner ({roomTemplates.length})
+                    </span>
+                  </div>
+                  <ul className="space-y-2">
+                    {roomTemplates.map((t) => {
+                      const type = ROOM_TYPES.find((rt) => rt.value === t.room_type)
+                      const active = selectedCustom === t.id
+                      return (
+                        <li key={t.id} className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedCustom(t.id)
+                              setSelectedPreset(null)
                             }}
-                          />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="text-sm font-bold text-slate-900">{p.label}</div>
-                          <div className="text-xs text-slate-500">
-                            {type?.label} · {p.width_cm} × {p.length_cm} cm · {p.hint}
+                            className={clsx(
+                              'flex-1 text-left rounded-2xl border-2 px-4 py-3 transition-colors flex items-center gap-3',
+                              active
+                                ? 'border-amber-500 bg-amber-50/70 dark:bg-amber-900/20'
+                                : 'border-slate-200 bg-white hover:border-slate-300 dark:bg-slate-800'
+                            )}
+                          >
+                            <div className="w-12 h-12 rounded-2xl bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center flex-shrink-0">
+                              <Sparkles className="w-5 h-5 text-amber-600" strokeWidth={2} />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="text-sm font-bold text-slate-900 dark:text-slate-100 truncate">{t.name}</div>
+                              <div className="text-xs text-slate-500">
+                                {type?.label} · {t.width_cm} × {t.length_cm} cm · {(t.packages || []).length} pakker
+                              </div>
+                            </div>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (confirm(`Slet skabelon "${t.name}"?`)) deleteRoomTemplate(t.id)
+                            }}
+                            className="w-11 h-11 rounded-2xl text-rose-500 hover:bg-rose-50 flex items-center justify-center flex-shrink-0"
+                            aria-label="Slet skabelon"
+                          >
+                            <Trash2 className="w-4 h-4" strokeWidth={2} />
+                          </button>
+                        </li>
+                      )
+                    })}
+                  </ul>
+                </div>
+              )}
+              <div>
+                <div className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">
+                  Standard-skabeloner
+                </div>
+                <ul className="space-y-2">
+                  {ROOM_PRESETS.map((p) => {
+                    const type = ROOM_TYPES.find((t) => t.value === p.room_type)
+                    const active = selectedPreset === p.id
+                    return (
+                      <li key={p.id}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedPreset(p.id)
+                            setSelectedCustom(null)
+                          }}
+                          className={clsx(
+                            'w-full text-left rounded-2xl border-2 px-4 py-3 transition-colors flex items-center gap-3',
+                            active
+                              ? 'border-sky-500 bg-sky-50 dark:bg-sky-900/30'
+                              : 'border-slate-200 bg-white hover:border-slate-300 dark:bg-slate-800'
+                          )}
+                        >
+                          <div className="w-12 h-12 rounded-2xl bg-white border border-slate-200 flex items-center justify-center flex-shrink-0 relative">
+                            <div
+                              className="border-2 border-slate-400 bg-slate-50"
+                              style={{
+                                width: Math.min(36, p.width_cm / 12),
+                                height: Math.min(36, p.length_cm / 12),
+                                borderRadius: 2,
+                              }}
+                            />
                           </div>
-                        </div>
-                        <div className="text-xs text-slate-400 flex-shrink-0">
-                          {p.suggested_templates?.length || 0} pakker foreslået
-                        </div>
-                      </button>
-                    </li>
-                  )
-                })}
-              </ul>
+                          <div className="flex-1 min-w-0">
+                            <div className="text-sm font-bold text-slate-900 dark:text-slate-100">{p.label}</div>
+                            <div className="text-xs text-slate-500">
+                              {type?.label} · {p.width_cm} × {p.length_cm} cm · {p.hint}
+                            </div>
+                          </div>
+                          <div className="text-xs text-slate-400 flex-shrink-0">
+                            {p.suggested_templates?.length || 0} pakker
+                          </div>
+                        </button>
+                      </li>
+                    )
+                  })}
+                </ul>
+              </div>
             </div>
           ) : (
             <>

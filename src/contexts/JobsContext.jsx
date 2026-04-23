@@ -101,6 +101,7 @@ export function JobsProvider({ children }) {
   )
   const [orgId, setOrgId] = useState(null)
   const [dbUserId, setDbUserId] = useState(null)
+  const [roomTemplates, setRoomTemplates] = useState([])
 
   // Synk orgId med den aktive org fra OrgContext (saa super-admin kan skifte)
   useEffect(() => {
@@ -161,10 +162,11 @@ export function JobsProvider({ children }) {
     if (!hasSupabase || !orgId) return
     setDbLoading(true)
     try {
-      const [jobsData, itemsData, templatesData] = await Promise.all([
+      const [jobsData, itemsData, templatesData, roomTemplatesData] = await Promise.all([
         repo.loadJobsForOrg(orgId),
         repo.loadItemsForOrg(orgId),
         repo.loadTemplates(orgId),
+        repo.loadRoomTemplates(orgId).catch(() => []), // kan fejle hvis tabel mangler
       ])
       setJobs(jobsData.map((j) => ({
         ...j,
@@ -173,6 +175,7 @@ export function JobsProvider({ children }) {
       })))
       setItems(itemsData)
       setTemplates(templatesData)
+      setRoomTemplates(roomTemplatesData)
     } catch (err) {
       // eslint-disable-next-line no-console
       console.warn('[JobsContext] refresh() fejlede:', err.message)
@@ -180,6 +183,60 @@ export function JobsProvider({ children }) {
       setDbLoading(false)
     }
   }, [orgId])
+
+  async function saveRoomAsTemplate(jobId, roomId, templateName) {
+    const room = getRoom(jobId, roomId)
+    if (!room) throw new Error('Rum findes ikke')
+    const packagesData = (room.packages || []).map((p) => ({
+      template_id: p.template_id,
+      name: p.name,
+      lucide_icon: p.lucide_icon,
+      position_x: p.position_x,
+      position_y: p.position_y,
+      pricing_model: p.pricing_model,
+      fixed_price: p.fixed_price,
+      hours: p.hours,
+      hourly_rate: p.hourly_rate,
+      shape: p.shape,
+      color: p.color,
+      size: p.size,
+    }))
+
+    if (hasSupabase && orgId) {
+      try {
+        const tpl = await repo.createRoomTemplate({
+          orgId,
+          name: templateName,
+          roomType: room.room_type,
+          widthCm: room.width_cm,
+          lengthCm: room.length_cm,
+          packages: packagesData,
+          createdBy: dbUserId,
+        })
+        setRoomTemplates((prev) => [tpl, ...prev])
+        toast?.success?.(`Skabelon "${templateName}" gemt`)
+        return tpl
+      } catch (err) {
+        reportDbError('Kunne ikke gemme skabelon', err)
+        throw err
+      }
+    }
+    // Mock-fallback (localStorage)
+    const local = { id: uid('rtpl'), name: templateName, room_type: room.room_type, width_cm: room.width_cm, length_cm: room.length_cm, packages: packagesData, created_at: new Date().toISOString() }
+    setRoomTemplates((prev) => [local, ...prev])
+    return local
+  }
+
+  async function deleteRoomTemplate(templateId) {
+    setRoomTemplates((prev) => prev.filter((t) => t.id !== templateId))
+    if (hasSupabase && orgId && !templateId.startsWith('rtpl-')) {
+      try {
+        await repo.deleteRoomTemplate(templateId)
+      } catch (err) {
+        reportDbError('Kunne ikke slette skabelon', err)
+      }
+    }
+  }
 
   useEffect(() => {
     if (orgId) refresh()
@@ -269,11 +326,32 @@ export function JobsProvider({ children }) {
     length_cm,
     floorplan_mode = 'rectangle',
     suggested_templates = [],
+    preset_packages = null, // fra gemt skabelon: array af faerdige package-objekter
   }) {
     const templateMap = new Map(
       (templates.length ? templates : PACKAGE_TEMPLATES).map((t) => [t.id, t])
     )
-    const packages = suggested_templates
+    const packages = preset_packages
+      ? preset_packages.map((p) => ({
+          id: uid('pkg'),
+          template_id: p.template_id,
+          name: p.name,
+          lucide_icon: p.lucide_icon,
+          position_x: p.position_x,
+          position_y: p.position_y,
+          pricing_model: p.pricing_model,
+          fixed_price: p.fixed_price || 0,
+          hours: p.hours || 0,
+          hourly_rate: p.hourly_rate,
+          notes: '',
+          timeline_text: '',
+          status: 'draft',
+          shape: p.shape || 'circle',
+          color: p.color || '#E11D48',
+          size: p.size || 'md',
+          items: [],
+        }))
+      : suggested_templates
       .map((tid) => templateMap.get(tid))
       .filter(Boolean)
       .map((tpl, idx, arr) => {
@@ -1061,7 +1139,7 @@ export function JobsProvider({ children }) {
       rejectOffer,
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [jobs, items, templates, dbLoading, orgId, dbUserId]
+    [jobs, items, templates, roomTemplates, dbLoading, orgId, dbUserId]
   )
 
   return <JobsContext.Provider value={value}>{children}</JobsContext.Provider>

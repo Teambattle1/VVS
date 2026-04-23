@@ -25,7 +25,6 @@ const MODES = [
   { value: 'rectangle', label: 'Rektangel', icon: Square },
   { value: 'freehand',  label: 'Fri tegning', icon: Pencil },
   { value: 'upload',    label: 'Billede', icon: Upload },
-  { value: 'template',  label: 'Skabelon', icon: LayoutTemplate },
 ]
 
 export default function RoomEditor() {
@@ -41,6 +40,7 @@ export default function RoomEditor() {
     addDrawingLine,
     clearDrawing,
     undoDrawing,
+    saveRoomAsTemplate,
   } = useJobs()
 
   const [placing, setPlacing] = useState(false)
@@ -112,6 +112,17 @@ export default function RoomEditor() {
     navigate(`/jobs/${job.id}`, { replace: true })
   }
 
+  async function handleSaveAsTemplate() {
+    const defaultName = room.name || 'Min skabelon'
+    const tplName = prompt('Navn på skabelon:', defaultName)
+    if (!tplName?.trim()) return
+    try {
+      await saveRoomAsTemplate(job.id, room.id, tplName.trim())
+    } catch {
+      /* fejl vist via toast */
+    }
+  }
+
   function handleModeChange(nextMode) {
     updateRoom(job.id, room.id, { floorplan_mode: nextMode })
     setDrawing(false)
@@ -157,6 +168,15 @@ export default function RoomEditor() {
               onChange={(e) => updateRoom(job.id, room.id, { name: e.target.value })}
             />
           </div>
+          <button
+            type="button"
+            onClick={handleSaveAsTemplate}
+            className="w-10 h-10 rounded-2xl text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800 flex items-center justify-center flex-shrink-0"
+            aria-label="Gem som skabelon"
+            title="Gem rum som skabelon"
+          >
+            <BookmarkPlus className="w-5 h-5" strokeWidth={2} />
+          </button>
           <button
             type="button"
             onClick={handleDeleteRoom}
