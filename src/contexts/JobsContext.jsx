@@ -159,7 +159,8 @@ export function JobsProvider({ children }) {
   // Supabase: load jobs/items/templates når org er fundet
   // ============================================
   const refresh = useCallback(async () => {
-    if (!hasSupabase || !orgId) return
+    const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+    if (!hasSupabase || !orgId || !UUID_RE.test(String(orgId))) return
     setDbLoading(true)
     try {
       const [jobsData, itemsData, templatesData, roomTemplatesData] = await Promise.all([

@@ -48,7 +48,8 @@ export function OrgProvider({ children }) {
   )
 
   async function refreshTeam(orgId) {
-    if (!hasSupabase || !orgId) return
+    const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+    if (!hasSupabase || !orgId || !UUID_RE.test(String(orgId))) return
     try {
       const rows = await teamRepo.loadTeam(orgId)
       if (rows.length === 0) {
@@ -134,11 +135,12 @@ export function OrgProvider({ children }) {
             }
           }
 
-          if (!cancelled) setOrg(MOCK_ORG)
+          // Ingen profile/org fundet — lad org vaere null saa super-admin kan vaelge via switcher
+          if (!cancelled) setOrg(null)
         } catch (err) {
           // eslint-disable-next-line no-console
-          console.warn('[OrgContext] Supabase org-lookup fejlede, bruger mock:', err.message)
-          if (!cancelled) setOrg(MOCK_ORG)
+          console.warn('[OrgContext] Supabase org-lookup fejlede:', err.message)
+          if (!cancelled) setOrg(null)
         }
       } else {
         setOrg(MOCK_ORG)
@@ -343,7 +345,14 @@ export function OrgProvider({ children }) {
           .select('*')
           .order('created_at', { ascending: false })
         if (error) throw error
-        if (!cancelled) setAllOrgs(data || [])
+        if (!cancelled) {
+          setAllOrgs(data || [])
+          // Hvis vi ikke fandt en profile-baseret org, default til foerste allOrgs-entry
+          if (!cancelled && !org && (data || []).length > 0) {
+            setOrg(data[0])
+            if (!homeOrgId) setHomeOrgId(data[0].id)
+          }
+        }
       } catch (err) {
         // Ignorer - ikke alle brugere kan se alle orgs (RLS), og det er OK
         // eslint-disable-next-line no-console
