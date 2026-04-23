@@ -182,7 +182,7 @@ export default function NewJob() {
                 lat={customerCoords.lat}
                 lon={customerCoords.lon}
                 address={customerAddress}
-                size="sm"
+                size="md"
               />
             </div>
           </div>

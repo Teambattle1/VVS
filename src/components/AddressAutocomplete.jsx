@@ -40,8 +40,9 @@ export default function AddressAutocomplete({
     setLoading(true)
     const timer = setTimeout(async () => {
       try {
+        // srid=4326 -> WGS84 lat/lon (ellers faar vi UTM 25832 som OSM ikke forstaar)
         const res = await fetch(
-          `${DAR_URL}?type=adresse&q=${encodeURIComponent(q)}&per_side=6&fuzzy`
+          `${DAR_URL}?type=adresse&q=${encodeURIComponent(q)}&per_side=6&fuzzy&srid=4326`
         )
         if (!res.ok) throw new Error('Adresse-lookup fejlede')
         const data = await res.json()
