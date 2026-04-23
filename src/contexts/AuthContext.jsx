@@ -18,12 +18,12 @@ const MOCK_USER = {
 // Benyttes som fallback hvis Supabase Auth ikke kender brugeren.
 async function tryDemoTeamLogin(email, password) {
   const e = email.trim().toLowerCase()
-  // 1. DB-laesning (kraever migration 20260424120000_team_persist)
+  // 1. DB-laesning (kraever migration 20260424120000_team_persist + 20260424130000_login_view_with_org)
   if (hasSupabase) {
     try {
       const { data } = await supabase
         .from('vvs_login_candidates')
-        .select('id, organization_id, name, role, email, demo_password')
+        .select('id, organization_id, name, role, email, demo_password, org_name, primary_color, accent_color, logo_url, org_email, org_phone, org_address')
         .ilike('email', e)
         .limit(1)
         .maybeSingle()
@@ -34,6 +34,19 @@ async function tryDemoTeamLogin(email, password) {
           name: data.name,
           role: data.role || 'montor',
           organization_id: data.organization_id,
+          // Pak hele org-rækken med saa OrgContext ikke behoever at query selv
+          organization: data.organization_id
+            ? {
+                id: data.organization_id,
+                name: data.org_name || 'Organisation',
+                primary_color: data.primary_color,
+                accent_color: data.accent_color,
+                logo_url: data.logo_url,
+                contact_email: data.org_email,
+                contact_phone: data.org_phone,
+                address: data.org_address,
+              }
+            : null,
         }
       }
     } catch { /* falder tilbage til INITIAL_TEAM */ }

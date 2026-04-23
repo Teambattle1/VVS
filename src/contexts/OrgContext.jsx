@@ -91,8 +91,16 @@ export function OrgProvider({ children }) {
 
       if (hasSupabase) {
         try {
-          // Demo-brugere (uden auth.users) har organization_id direkte paa user-objektet
-          // fra tryDemoTeamLogin — brug den uden at query vvs_users via user_id.
+          // Demo-brugere (uden auth.users) har organization_id + organization direkte paa user-objektet
+          // fra tryDemoTeamLogin — brug den uden at query vvs_users/vvs_organizations (som RLS blokerer).
+          if (user.organization) {
+            if (!cancelled) {
+              setHomeOrgId(user.organization.id)
+              setUserRole(user.role || 'montor')
+              setOrg(user.organization)
+            }
+            return
+          }
           let profile = null
           if (user.organization_id) {
             profile = {
