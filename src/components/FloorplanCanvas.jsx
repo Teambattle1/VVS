@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Stage, Layer, Rect, Line, Image as KonvaImage, Text as KonvaText, Group } from 'react-konva'
+import { Camera } from 'lucide-react'
 import clsx from 'clsx'
 import { packageTotal, formatDKK } from '../lib/pricing.js'
 import LucideByName from './LucideByName.jsx'
@@ -13,10 +14,21 @@ import LucideByName from './LucideByName.jsx'
 
 const DEFAULT_COLOR = '#E11D48' // roed (matcher brand)
 
+// Giver 5-12 grid-labels uanset rumstoerrelse (20cm / 50cm / 100cm ...)
+function pickStep(totalCm) {
+  const options = [10, 20, 25, 50, 100, 200, 500]
+  for (const s of options) {
+    if (totalCm / s <= 12) return s
+  }
+  return 1000
+}
+
 export default function FloorplanCanvas({
   room,
   placing = false,
   drawing = false,
+  drawColor = '#0F172A',
+  drawWidth = 3,
   selectedPackageId = null,
   onPlace,
   onSelectPackage,
@@ -77,17 +89,44 @@ export default function FloorplanCanvas({
   const showRectangleBox = room.floorplan_mode === 'rectangle' || room.floorplan_mode === 'template'
   const showGrid = showRectangleBox || room.floorplan_mode === 'freehand'
 
+  // Dark-mode detection: lytter paa <html class="dark">
+  const [isDark, setIsDark] = useState(
+    typeof document !== 'undefined' && document.documentElement.classList.contains('dark')
+  )
+  useEffect(() => {
+    const obs = new MutationObserver(() =>
+      setIsDark(document.documentElement.classList.contains('dark'))
+    )
+    obs.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] })
+    return () => obs.disconnect()
+  }, [])
+
+  const canvasBg = isDark ? '#0F172A' : '#ffffff'
+  const canvasGrid = isDark ? '#1E293B' : '#e2e8f0'
+  const canvasBorder = isDark ? '#475569' : '#94a3b8'
+  const canvasLabel = isDark ? '#94A3B8' : '#64748B'
+
+  // Vaelg cm-step der giver 5-12 labels uanset rumstoerrelse
+  const cmStepX = pickStep(room.width_cm || 200)
+  const cmStepY = pickStep(room.length_cm || 200)
+
   const gridLines = useMemo(() => {
     const lines = []
-    const step = 40
-    for (let x = step; x < innerW; x += step) {
-      lines.push({ key: `v${x}`, points: [padding + x, padding, padding + x, padding + innerH] })
+    const labels = []
+    const pxPerCmX = innerW / (room.width_cm || 200)
+    const pxPerCmY = innerH / (room.length_cm || 200)
+    for (let cm = cmStepX; cm < (room.width_cm || 200); cm += cmStepX) {
+      const x = cm * pxPerCmX
+      lines.push({ key: `v${cm}`, points: [padding + x, padding, padding + x, padding + innerH] })
+      labels.push({ key: `lv${cm}`, x: padding + x, y: padding - 14, text: String(cm), align: 'center' })
     }
-    for (let y = step; y < innerH; y += step) {
-      lines.push({ key: `h${y}`, points: [padding, padding + y, padding + innerW, padding + y] })
+    for (let cm = cmStepY; cm < (room.length_cm || 200); cm += cmStepY) {
+      const y = cm * pxPerCmY
+      lines.push({ key: `h${cm}`, points: [padding, padding + y, padding + innerW, padding + y] })
+      labels.push({ key: `lh${cm}`, x: padding - 20, y: padding + y - 6, text: String(cm), align: 'right' })
     }
-    return lines
-  }, [innerW, innerH])
+    return { lines, labels }
+  }, [innerW, innerH, room.width_cm, room.length_cm, cmStepX, cmStepY])
 
   // COVER-skalering: billedet fylder hele rum-arealet (beskaerer overskud)
   const bgDims = useMemo(() => {
@@ -160,18 +199,31 @@ export default function FloorplanCanvas({
     setCurrentLine(null)
   }
 
-  // HTML marker drag-handling
+  // HTML marker drag-handling — skelner klik fra drag via 5px threshold
+  const DRAG_THRESHOLD = 5
   function startMarkerDrag(e, pkg) {
     if (readOnly || drawing || placing) return
     e.stopPropagation()
     const target = e.currentTarget
     target.setPointerCapture?.(e.pointerId)
-    setDraggingId(pkg.id)
-    dragStartRef.current = { id: pkg.id }
+    dragStartRef.current = {
+      id: pkg.id,
+      startX: e.clientX,
+      startY: e.clientY,
+      moved: false,
+    }
   }
 
   function moveMarkerDrag(e, pkg) {
-    if (draggingId !== pkg.id || !wrapRef.current) return
+    const ref = dragStartRef.current
+    if (!ref || ref.id !== pkg.id || !wrapRef.current) return
+    const dx = e.clientX - ref.startX
+    const dy = e.clientY - ref.startY
+    if (!ref.moved) {
+      if (Math.hypot(dx, dy) < DRAG_THRESHOLD) return
+      ref.moved = true
+      setDraggingId(pkg.id)
+    }
     const rect = wrapRef.current.getBoundingClientRect()
     const px = e.clientX - rect.left
     const py = e.clientY - rect.top
@@ -181,9 +233,14 @@ export default function FloorplanCanvas({
   }
 
   function endMarkerDrag(e, pkg) {
-    if (draggingId !== pkg.id) return
+    const ref = dragStartRef.current
     const target = e.currentTarget
     target.releasePointerCapture?.(e.pointerId)
+    // Hvis musen knap nok er flyttet, er det et klik — lad onClick-handleren aabne drawer
+    if (ref && ref.id === pkg.id && !ref.moved) {
+      dragStartRef.current = null
+      return
+    }
     setDraggingId(null)
     dragStartRef.current = null
   }
@@ -198,8 +255,8 @@ export default function FloorplanCanvas({
     <div
       ref={wrapRef}
       className={clsx(
-        'relative w-full rounded-2xl overflow-hidden border-2 bg-slate-50',
-        placing || drawing ? 'border-sky-400 border-dashed' : 'border-slate-200'
+        'relative w-full rounded-2xl overflow-hidden border-2 bg-slate-50 dark:bg-slate-900',
+        placing || drawing ? 'border-sky-400 border-dashed' : 'border-slate-200 dark:border-slate-700'
       )}
       style={{ minHeight: 280, touchAction: drawing ? 'none' : 'auto' }}
     >
@@ -220,7 +277,7 @@ export default function FloorplanCanvas({
         onTouchEnd={handleStageMouseUp}
       >
         <Layer listening={false}>
-          <Rect x={padding} y={padding} width={innerW} height={innerH} fill="#ffffff" cornerRadius={6} />
+          <Rect x={padding} y={padding} width={innerW} height={innerH} fill={canvasBg} cornerRadius={6} />
           {bgImage && bgDims && (
             <Group
               clipX={padding}
@@ -238,9 +295,21 @@ export default function FloorplanCanvas({
               />
             </Group>
           )}
-          {showGrid && gridLines.map((l) => <Line key={l.key} points={l.points} stroke="#e2e8f0" strokeWidth={1} />)}
+          {showGrid && gridLines.lines.map((l) => <Line key={l.key} points={l.points} stroke={canvasGrid} strokeWidth={1} />)}
+          {showGrid && gridLines.labels.map((lbl) => (
+            <KonvaText
+              key={lbl.key}
+              x={lbl.align === 'right' ? lbl.x - 20 : lbl.x - 12}
+              y={lbl.y}
+              width={lbl.align === 'right' ? 20 : 24}
+              text={lbl.text}
+              fontSize={9}
+              fill={canvasLabel}
+              align={lbl.align === 'right' ? 'right' : 'center'}
+            />
+          ))}
           {showRectangleBox && (
-            <Rect x={padding} y={padding} width={innerW} height={innerH} stroke="#94a3b8" strokeWidth={3} cornerRadius={6} />
+            <Rect x={padding} y={padding} width={innerW} height={innerH} stroke={canvasBorder} strokeWidth={3} cornerRadius={6} />
           )}
           <KonvaText
             text={`${room.width_cm} × ${room.length_cm} cm`}
@@ -258,8 +327,8 @@ export default function FloorplanCanvas({
             <Line
               key={l.id}
               points={denormalizePoints(l.points)}
-              stroke="#0F172A"
-              strokeWidth={3}
+              stroke={l.color || '#0F172A'}
+              strokeWidth={l.width || 3}
               lineCap="round"
               lineJoin="round"
               tension={0.3}
@@ -268,8 +337,8 @@ export default function FloorplanCanvas({
           {currentLine && (
             <Line
               points={denormalizePoints(currentLine)}
-              stroke="#0EA5E9"
-              strokeWidth={3}
+              stroke={drawColor || '#0EA5E9'}
+              strokeWidth={drawWidth || 3}
               lineCap="round"
               lineJoin="round"
               tension={0.3}
@@ -336,10 +405,31 @@ function PackageMarker({
     shape === 'circle' ? 9999 : shape === 'rounded' ? 14 : shape === 'diamond' ? 4 : 0
   const transform = shape === 'diamond' ? 'rotate(45deg)' : undefined
 
-  // Halv-transparent ved hover saa brugeren kan se tegning/grid nedenunder
-  // MEN kun hvis ikke billeder at vise (ellers holdes fuld saa billed-popup kan ses)
-  const hasPhotos = (pkg.photos?.length || 0) > 0
-  const hoverOpacity = hover && !dragging && !selected && !hasPhotos ? 0.35 : 1
+  const photoCount = pkg.photos?.length || 0
+  const items = pkg.items || []
+  const hasItems = items.length > 0
+  const hoverOpacity = hover && !dragging && !selected ? 0.7 : 1
+
+  // Smart popup-position: vælg den side der har bedst plads
+  const placeBelow = py < 140
+  const placeRight = px < 180
+  const placeLeft = px > innerW - 180
+  const horiz = placeRight ? 'left' : placeLeft ? 'right' : 'center'
+
+  const popupStyle = {
+    position: 'absolute',
+    [placeBelow ? 'top' : 'bottom']: `calc(100% + 6px)`,
+    maxWidth: '240px',
+    width: 'max-content',
+  }
+  if (horiz === 'center') {
+    popupStyle.left = '50%'
+    popupStyle.transform = 'translateX(-50%)'
+  } else if (horiz === 'left') {
+    popupStyle.left = '0'
+  } else {
+    popupStyle.right = '0'
+  }
 
   return (
     <div
@@ -350,7 +440,6 @@ function PackageMarker({
       )}
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
-      style={{ opacity: hoverOpacity }}
       style={{
         left: `${px}px`,
         top: `${py}px`,
@@ -370,7 +459,7 @@ function PackageMarker({
       onPointerCancel={onPointerCancel}
     >
       <div
-        className="flex items-center justify-center shadow-md transition-all"
+        className="relative flex items-center justify-center shadow-md transition-all"
         style={{
           width: boxSize,
           height: boxSize,
@@ -394,27 +483,56 @@ function PackageMarker({
             }}
           />
         </div>
+
+        {photoCount > 0 && (
+          <div
+            className="absolute -top-1.5 -right-1.5 min-w-[22px] h-[22px] px-1 rounded-full bg-sky-500 text-white text-[10px] font-extrabold flex items-center justify-center gap-0.5 shadow-md ring-2 ring-white dark:ring-slate-900"
+            style={{ transform: shape === 'diamond' ? 'rotate(-45deg)' : undefined }}
+          >
+            <Camera className="w-2.5 h-2.5" strokeWidth={2.5} />
+            {photoCount}
+          </div>
+        )}
       </div>
 
-      {/* Billede-thumbs popup ved hover */}
-      {hover && hasPhotos && !dragging && (
+      {hover && !dragging && hasItems && (
         <div
-          className="absolute left-1/2 -translate-x-1/2 pointer-events-none z-50 flex gap-1 p-1.5 bg-white dark:bg-slate-900 rounded-xl shadow-xl border border-slate-200 dark:border-slate-700"
-          style={{ bottom: `calc(100% + 4px)` }}
+          className="pointer-events-none z-50 rounded-xl shadow-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 overflow-hidden"
+          style={popupStyle}
         >
-          {pkg.photos.slice(0, 4).map((p) => (
-            <img
-              key={p.id}
-              src={p.url}
-              alt={p.name || 'Foto'}
-              className="w-14 h-14 rounded-lg object-cover flex-shrink-0"
-            />
-          ))}
-          {pkg.photos.length > 4 && (
-            <div className="w-14 h-14 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-xs font-bold text-slate-600 dark:text-slate-300 flex-shrink-0">
-              +{pkg.photos.length - 4}
+          <div className="px-3 py-2 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800">
+            <div className="text-[11px] font-bold text-slate-900 dark:text-white truncate">
+              {pkg.name}
             </div>
-          )}
+            <div className="text-[10px] text-slate-500 dark:text-slate-400">
+              {items.length} {items.length === 1 ? 'vare' : 'varer'} · {formatDKK(total)}
+            </div>
+          </div>
+          <ul className="divide-y divide-slate-100 dark:divide-slate-800 max-h-48 overflow-y-auto">
+            {items.slice(0, 8).map((it) => (
+              <li
+                key={it.id}
+                className="px-3 py-1.5 flex items-center justify-between gap-2 text-[11px]"
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="font-semibold text-slate-900 dark:text-white truncate">
+                    {it.name_snapshot}
+                  </div>
+                  <div className="text-[10px] text-slate-500 dark:text-slate-400">
+                    {it.quantity} × {formatDKK(it.unit_price)}
+                  </div>
+                </div>
+                <div className="font-bold text-slate-900 dark:text-white whitespace-nowrap">
+                  {formatDKK((it.quantity || 1) * (it.unit_price || 0))}
+                </div>
+              </li>
+            ))}
+            {items.length > 8 && (
+              <li className="px-3 py-1.5 text-[10px] text-slate-500 dark:text-slate-400 text-center">
+                + {items.length - 8} flere…
+              </li>
+            )}
+          </ul>
         </div>
       )}
 

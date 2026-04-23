@@ -12,6 +12,7 @@ import {
   X,
   ImagePlus,
   BookmarkPlus,
+  Check,
 } from 'lucide-react'
 import clsx from 'clsx'
 import { useJobs } from '../contexts/JobsContext.jsx'
@@ -23,9 +24,10 @@ import PriceSummary from '../components/PriceSummary.jsx'
 import LucideByName from '../components/LucideByName.jsx'
 
 const MODES = [
-  { value: 'rectangle', label: 'Rektangel', icon: Square },
+  { value: 'rectangle', label: 'Rektangel',   icon: Square },
   { value: 'freehand',  label: 'Fri tegning', icon: Pencil },
-  { value: 'upload',    label: 'Billede', icon: Upload },
+  { value: 'upload',    label: 'Billede',     icon: Upload },
+  { value: 'template',  label: 'Skabelon',    icon: LayoutTemplate },
 ]
 
 export default function RoomEditor() {
@@ -42,10 +44,12 @@ export default function RoomEditor() {
     clearDrawing,
     undoDrawing,
     saveRoomAsTemplate,
+    roomTemplates,
+    applyRoomTemplate,
+    deleteRoomTemplate,
   } = useJobs()
 
   const [placing, setPlacing] = useState(false)
-  const [drawing, setDrawing] = useState(false)
   const [drawColor, setDrawColor] = useState('#0F172A')
   const [drawWidth, setDrawWidth] = useState(3)
   const [showPicker, setShowPicker] = useState(false)
@@ -79,10 +83,11 @@ export default function RoomEditor() {
   const selectedPackage = room.packages?.find((p) => p.id === selectedPackageId) || null
   const isFreehand = room.floorplan_mode === 'freehand'
   const isUpload = room.floorplan_mode === 'upload'
+  const isTemplateMode = room.floorplan_mode === 'template'
   const hasDrawing = (room.floorplan_data?.lines?.length || 0) > 0
+  const drawing = isFreehand && !placing
 
   function startPlacing() {
-    setDrawing(false)
     setShowPicker(true)
   }
 
@@ -126,7 +131,6 @@ export default function RoomEditor() {
 
   function handleModeChange(nextMode) {
     updateRoom(job.id, room.id, { floorplan_mode: nextMode })
-    setDrawing(false)
     setPlacing(false)
   }
 
@@ -253,19 +257,10 @@ export default function RoomEditor() {
             {isFreehand && (
               <div className="space-y-3 border-t border-slate-100 pt-3">
                 <div className="flex flex-wrap items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setDrawing((d) => !d)}
-                    className={clsx(
-                      'inline-flex items-center gap-1.5 rounded-2xl px-3 py-2 text-sm font-semibold border-2 min-h-[40px]',
-                      drawing
-                        ? 'border-sky-500 bg-sky-500 text-white'
-                        : 'border-sky-500 bg-white text-sky-700 hover:bg-sky-50'
-                    )}
-                  >
+                  <span className="inline-flex items-center gap-1.5 rounded-2xl px-3 py-2 text-sm font-semibold border-2 border-sky-500 bg-sky-500 text-white min-h-[40px]">
                     <Pencil className="w-4 h-4" strokeWidth={2} />
-                    {drawing ? 'Stop tegning' : 'Start tegning'}
-                  </button>
+                    Tegne-mode aktiv
+                  </span>
                   <button
                     type="button"
                     onClick={() => undoDrawing(job.id, room.id)}
@@ -301,13 +296,29 @@ export default function RoomEditor() {
                             type="button"
                             onClick={() => setDrawColor(c)}
                             className={clsx(
-                              'w-10 h-10 rounded-2xl border-2 transition-transform touch-manipulation',
-                              active ? 'border-slate-900 scale-110 shadow-md' : 'border-slate-200 hover:scale-105'
+                              'relative w-10 h-10 rounded-2xl border-2 transition-all touch-manipulation',
+                              active
+                                ? 'scale-110 shadow-lg ring-4 ring-sky-500/60 border-white dark:border-slate-900'
+                                : 'border-slate-300 dark:border-slate-600 hover:scale-105'
                             )}
                             style={{ backgroundColor: c }}
                             aria-label={`Vælg farve ${c}`}
                             title={c}
-                          />
+                          >
+                            {active && (
+                              <span className="absolute inset-0 flex items-center justify-center">
+                                <Check
+                                  className="w-5 h-5 drop-shadow"
+                                  strokeWidth={3}
+                                  style={{
+                                    color: ['#FFFFFF', '#F59E0B'].includes(c.toUpperCase())
+                                      ? '#0F172A'
+                                      : '#FFFFFF',
+                                  }}
+                                />
+                              </span>
+                            )}
+                          </button>
                         )
                       })}
                       <input
@@ -340,8 +351,8 @@ export default function RoomEditor() {
                             <div
                               className="rounded-full"
                               style={{
-                                width: Math.max(w.value * 2, 6),
-                                height: w.value,
+                                width: 28,
+                                height: Math.max(w.value, 2),
                                 backgroundColor: drawColor,
                               }}
                             />
@@ -388,6 +399,87 @@ export default function RoomEditor() {
                 <span className="text-xs text-slate-500 ml-auto">
                   Tip: Du kan tage billede direkte med kameraet.
                 </span>
+              </div>
+            )}
+
+            {isTemplateMode && (
+              <div className="border-t border-slate-100 dark:border-slate-700 pt-3 space-y-3">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                      Anvend en gemt skabelon
+                    </h3>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      Kopiér pakker + dimensioner fra en tidligere rum-skabelon.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleSaveAsTemplate}
+                    className="btn-secondary text-xs"
+                    disabled={!room.packages?.length}
+                    title={!room.packages?.length ? 'Tilføj pakker før du gemmer' : 'Gem nuværende rum som skabelon'}
+                  >
+                    <BookmarkPlus className="w-4 h-4" strokeWidth={2} />
+                    Gem som skabelon
+                  </button>
+                </div>
+
+                {(roomTemplates?.length || 0) === 0 ? (
+                  <div className="rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-700 p-6 text-center">
+                    <LayoutTemplate className="w-6 h-6 text-slate-400 mx-auto mb-2" strokeWidth={2} />
+                    <p className="text-sm text-slate-600 dark:text-slate-300">
+                      Ingen skabeloner endnu. Gem et rum som skabelon for at kunne genbruge det.
+                    </p>
+                  </div>
+                ) : (
+                  <ul className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                    {roomTemplates.map((t) => (
+                      <li
+                        key={t.id}
+                        className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-3 flex items-center gap-3"
+                      >
+                        <div className="w-10 h-10 rounded-2xl bg-sky-50 dark:bg-sky-900/40 text-sky-600 dark:text-sky-300 flex items-center justify-center flex-shrink-0">
+                          <LayoutTemplate className="w-5 h-5" strokeWidth={2} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm font-semibold text-slate-900 dark:text-white truncate">
+                            {t.name}
+                          </div>
+                          <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                            {t.width_cm} × {t.length_cm} cm · {t.packages?.length || 0} pakker
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (
+                              room.packages?.length &&
+                              !confirm(
+                                `Skabelonen tilføjer ${t.packages?.length || 0} pakker til rummet. Fortsæt?`
+                              )
+                            )
+                              return
+                            applyRoomTemplate(job.id, room.id, t.id).catch(() => {})
+                          }}
+                          className="btn-primary text-xs flex-shrink-0"
+                        >
+                          Anvend
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (confirm(`Slet skabelonen "${t.name}"?`)) deleteRoomTemplate(t.id)
+                          }}
+                          className="w-9 h-9 rounded-xl text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/30 flex items-center justify-center flex-shrink-0"
+                          aria-label="Slet skabelon"
+                        >
+                          <Trash2 className="w-4 h-4" strokeWidth={2} />
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
             )}
           </div>
@@ -439,7 +531,7 @@ export default function RoomEditor() {
 
           {drawing && (
             <div className="flex items-center justify-between bg-sky-50 border border-sky-200 rounded-2xl px-4 py-3 text-sm text-sky-900">
-              <span>Tegn rummets omrids eller detaljer. Tryk &quot;Stop tegning&quot; når du er færdig.</span>
+              <span>Tegn rummets omrids eller detaljer — slip musen for at afslutte stregen.</span>
             </div>
           )}
         </div>

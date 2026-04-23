@@ -238,6 +238,39 @@ export function JobsProvider({ children }) {
     }
   }
 
+  // Anvend en skabelon paa et rum: overskriv dimensioner + tilfoej skabelonens pakker
+  async function applyRoomTemplate(jobId, roomId, templateId) {
+    const tpl = roomTemplates.find((t) => t.id === templateId)
+    if (!tpl) throw new Error('Skabelon findes ikke')
+    const room = getRoom(jobId, roomId)
+    if (!room) throw new Error('Rum findes ikke')
+
+    await updateRoom(jobId, roomId, {
+      room_type: tpl.room_type || room.room_type,
+      width_cm: tpl.width_cm || room.width_cm,
+      length_cm: tpl.length_cm || room.length_cm,
+    })
+
+    for (const p of tpl.packages || []) {
+      const fakeTemplate = {
+        id: p.template_id,
+        name: p.name,
+        lucide_icon: p.lucide_icon,
+        pricing_model: p.pricing_model,
+        fixed_price: p.fixed_price,
+        hours: p.hours,
+        hourly_rate: p.hourly_rate,
+        shape: p.shape,
+        color: p.color,
+        size: p.size,
+      }
+      const pos = { x: p.position_x ?? 0.5, y: p.position_y ?? 0.5 }
+      // eslint-disable-next-line no-await-in-loop
+      await addPackage(jobId, roomId, fakeTemplate, pos)
+    }
+    toast?.success?.(`Skabelon "${tpl.name}" anvendt`)
+  }
+
   useEffect(() => {
     if (orgId) refresh()
   }, [orgId, refresh])
@@ -1102,6 +1135,10 @@ export function JobsProvider({ children }) {
       jobs,
       items,
       templates,
+      roomTemplates,
+      saveRoomAsTemplate,
+      deleteRoomTemplate,
+      applyRoomTemplate,
       dbLoading,
       supabaseMode: supabaseModeRef.current,
       refresh,
