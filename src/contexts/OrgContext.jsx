@@ -40,7 +40,10 @@ export function OrgProvider({ children }) {
   const [org, setOrg] = useState(null) // aktive org (=homeOrg for ikke-super-admins)
   const [homeOrgId, setHomeOrgId] = useState(null) // brugerens egen org fra vvs_users
   const [userRole, setUserRole] = useState(null)
-  const [team, setTeam] = useState(INITIAL_TEAM)
+  // Alle brugere faar default-kode '1234' medmindre anden angivet
+  const [team, setTeam] = useState(() =>
+    INITIAL_TEAM.map((u) => ({ ...u, password: u.password || '1234' }))
+  )
   const [allOrgs, setAllOrgs] = useState(hasSupabase ? [] : INITIAL_ORGS)
 
   function reportDbError(where, err) {
@@ -183,14 +186,15 @@ export function OrgProvider({ children }) {
     }
   }
 
-  function addTeamMember({ name, email, phone, role }) {
+  function addTeamMember({ name, email, phone, role, password, active }) {
     const newUser = {
       id: uid('u'),
       name: name.trim(),
       email: email.trim(),
       phone: phone?.trim() || '',
       role: role || 'montor',
-      active: true,
+      active: active !== false,
+      password: (password && password.trim()) || '1234',
     }
     setTeam((prev) => [newUser, ...prev])
     return newUser

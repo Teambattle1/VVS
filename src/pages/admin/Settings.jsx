@@ -32,9 +32,9 @@ const PRESET_COLORS = ['#0EA5E9', '#DC2626', '#059669', '#7C3AED', '#EA580C', '#
 const ACCENT_COLORS = ['#F59E0B', '#EC4899', '#06B6D4', '#84CC16', '#6366F1', '#F43F5E']
 
 export default function AdminSettings() {
-  const { org, updateOrg, team, addTeamMember, removeTeamMember } = useOrg()
+  const { org, updateOrg, team, addTeamMember, updateTeamMember, removeTeamMember } = useOrg()
   const toast = useToast()
-  const [showAddUser, setShowAddUser] = useState(false)
+  const [editingUser, setEditingUser] = useState(null) // null | 'new' | user-object
   const [status, setStatus] = useState('idle') // idle | dirty | saving | saved
   const [hasPending, setHasPending] = useState(false)
   const [cvrLoading, setCvrLoading] = useState(false)
@@ -332,7 +332,7 @@ export default function AdminSettings() {
             )}
             <button
               type="button"
-              onClick={() => setShowAddUser(true)}
+              onClick={() => setEditingUser('new')}
               className="btn-primary text-xs"
             >
               <Plus className="w-4 h-4 text-white" strokeWidth={2.25} />
@@ -341,14 +341,19 @@ export default function AdminSettings() {
           </div>
         </div>
 
+        <p className="text-[11px] text-slate-500 dark:text-slate-400 -mt-1">
+          Klik på en bruger for at redigere. Standard-kode for alle nye brugere er <code className="font-mono font-bold text-slate-700 dark:text-slate-200">1234</code>.
+        </p>
+
         <ul className="grid grid-cols-1 md:grid-cols-2 gap-2">
           {team.map((u) => (
             <li
               key={u.id}
               className={clsx(
-                'rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-3 flex items-center gap-3',
+                'rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:border-sky-400 dark:hover:border-sky-500 cursor-pointer transition-colors flex items-center gap-3 pr-2 pl-3 py-3',
                 !u.active && 'opacity-60'
               )}
+              onClick={() => setEditingUser(u)}
             >
               <div className="w-10 h-10 rounded-2xl bg-sky-50 dark:bg-sky-900/40 text-sky-600 dark:text-sky-300 flex items-center justify-center flex-shrink-0">
                 {u.role === 'org_admin' ? (
@@ -367,7 +372,8 @@ export default function AdminSettings() {
               </div>
               <button
                 type="button"
-                onClick={() => {
+                onClick={(e) => {
+                  e.stopPropagation()
                   if (confirm(`Fjern ${u.name}?`)) removeTeamMember(u.id)
                 }}
                 className="w-9 h-9 rounded-xl text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/30 flex items-center justify-center flex-shrink-0"
@@ -380,13 +386,19 @@ export default function AdminSettings() {
         </ul>
       </Section>
 
-      {showAddUser && (
-        <AddUserInlineDialog
-          onClose={() => setShowAddUser(false)}
+      {editingUser && (
+        <UserEditDialog
+          user={editingUser === 'new' ? null : editingUser}
+          onClose={() => setEditingUser(null)}
           onSave={(data) => {
-            addTeamMember(data)
-            toast.success(`${data.name} tilføjet`)
-            setShowAddUser(false)
+            if (editingUser === 'new') {
+              addTeamMember(data)
+              toast.success(`${data.name} tilføjet (kode: ${data.password})`)
+            } else {
+              updateTeamMember(editingUser.id, data)
+              toast.success(`${data.name} opdateret`)
+            }
+            setEditingUser(null)
           }}
         />
       )}
@@ -544,16 +556,27 @@ function Field({ label, children }) {
   )
 }
 
-function AddUserInlineDialog({ onClose, onSave }) {
-  const [name, setName] = useState('')
-  const [email, setEmail] = useState('')
-  const [phone, setPhone] = useState('')
-  const [role, setRole] = useState('montor')
+function UserEditDialog({ user, onClose, onSave }) {
+  const isNew = !user
+  const [name, setName] = useState(user?.name || '')
+  const [email, setEmail] = useState(user?.email || '')
+  const [phone, setPhone] = useState(user?.phone || '')
+  const [role, setRole] = useState(user?.role || 'montor')
+  const [active, setActive] = useState(user?.active !== false)
+  const [password, setPassword] = useState(user?.password || '1234')
+  const [showPw, setShowPw] = useState(false)
 
   function handleSubmit(e) {
     e.preventDefault()
     if (!name.trim() || !email.trim()) return
-    onSave({ name: name.trim(), email: email.trim(), phone: phone.trim(), role, active: true })
+    onSave({
+      name: name.trim(),
+      email: email.trim(),
+      phone: phone.trim(),
+      role,
+      active,
+      password: password.trim() || '1234',
+    })
   }
 
   return (
@@ -564,7 +587,7 @@ function AddUserInlineDialog({ onClose, onSave }) {
       >
         <header className="px-5 py-4 border-b border-slate-100 dark:border-slate-700 flex items-center gap-3">
           <h2 className="text-lg font-bold text-slate-900 dark:text-white flex-1">
-            Tilføj bruger
+            {isNew ? 'Tilføj bruger' : 'Rediger bruger'}
           </h2>
           <button
             type="button"
@@ -589,6 +612,37 @@ function AddUserInlineDialog({ onClose, onSave }) {
             <input type="tel" className="input" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+45 20 12 34 56" />
           </div>
           <div>
+            <label className="label">Adgangskode</label>
+            <div className="flex gap-2">
+              <input
+                type={showPw ? 'text' : 'password'}
+                className="input flex-1 font-mono"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="1234"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPw((s) => !s)}
+                className="btn-secondary flex-shrink-0"
+                title={showPw ? 'Skjul' : 'Vis'}
+              >
+                {showPw ? 'Skjul' : 'Vis'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setPassword('1234')}
+                className="btn-secondary flex-shrink-0"
+                title="Nulstil til 1234"
+              >
+                Nulstil
+              </button>
+            </div>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+              Standard-kode er <code className="font-mono font-bold">1234</code> for alle brugere.
+            </p>
+          </div>
+          <div>
             <label className="label">Rolle</label>
             <div className="grid grid-cols-2 gap-2">
               {ROLES.map((r) => (
@@ -608,12 +662,38 @@ function AddUserInlineDialog({ onClose, onSave }) {
               ))}
             </div>
           </div>
+          {!isNew && (
+            <div className="flex items-center justify-between rounded-2xl border border-slate-200 dark:border-slate-700 px-4 py-3">
+              <div>
+                <div className="text-sm font-semibold text-slate-900 dark:text-white">Aktiv bruger</div>
+                <div className="text-xs text-slate-500 dark:text-slate-400">
+                  Inaktive kan ikke logge ind.
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setActive((a) => !a)}
+                className={clsx(
+                  'w-12 h-7 rounded-full relative transition-colors',
+                  active ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-slate-600'
+                )}
+                aria-pressed={active}
+              >
+                <span
+                  className={clsx(
+                    'absolute top-0.5 w-6 h-6 bg-white rounded-full transition-transform shadow',
+                    active ? 'translate-x-5' : 'translate-x-0.5'
+                  )}
+                />
+              </button>
+            </div>
+          )}
         </div>
         <footer className="p-4 border-t border-slate-100 dark:border-slate-700 flex gap-2">
           <button type="button" onClick={onClose} className="btn-secondary flex-1">Annuller</button>
           <button type="submit" className="btn-primary flex-1">
             <Check className="w-5 h-5 text-white" strokeWidth={2.25} />
-            Tilføj
+            Gem
           </button>
         </footer>
       </form>
