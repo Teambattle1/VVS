@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import { Mail, Lock, Loader2, AlertCircle } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext.jsx'
 import BrandIcon from '../components/BrandIcon.jsx'
+import { VERSION } from '../lib/version.js'
 
 export default function Login() {
   const { signIn } = useAuth()
@@ -38,6 +39,9 @@ export default function Login() {
             VVS <span className="text-sky-500">FLOW</span>
           </h1>
           <p className="text-sm text-slate-500 mt-1">Log ind for at se dine sager</p>
+          <span className="mt-2 inline-flex items-center gap-1 rounded-full bg-slate-100 text-slate-500 text-[10px] font-mono font-semibold px-2 py-0.5">
+            v{VERSION}
+          </span>
         </div>
 
         <form onSubmit={handleSubmit} className="card p-6 space-y-5">

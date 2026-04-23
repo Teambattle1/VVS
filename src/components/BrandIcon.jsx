@@ -15,7 +15,7 @@ export default function BrandIcon({ size = 48, className, rounded = true }) {
       {rounded && <rect width="64" height="64" rx="14" fill="currentColor" fillOpacity="0.06" />}
       <g
         transform="translate(4 0) scale(2.5)"
-        stroke="#E11D48"
+        stroke="#84CC16"
         strokeWidth="2.5"
         strokeLinecap="round"
         strokeLinejoin="round"
