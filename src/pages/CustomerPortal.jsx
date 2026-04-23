@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useParams, useNavigate } from 'react-router-dom'
 import {
   CheckCircle2,
   XCircle,
@@ -9,10 +9,15 @@ import {
   User as UserIcon,
   ShieldCheck,
   AlertCircle,
+  UserPlus,
+  History,
 } from 'lucide-react'
 import clsx from 'clsx'
 import { useJobs } from '../contexts/JobsContext.jsx'
 import { useOrg } from '../contexts/OrgContext.jsx'
+import { useCustomerAuth } from '../contexts/CustomerAuthContext.jsx'
+import { notifyMontorCustomerAction } from '../lib/notifications.js'
+import { useJobRealtime } from '../hooks/useRealtime.js'
 import { jobTotal, roomTotal, packageTotal, formatDKK, toInclVat } from '../lib/pricing.js'
 import { ROOM_TYPES } from '../lib/mockTemplates.js'
 import BrandIcon from '../components/BrandIcon.jsx'
@@ -32,16 +37,24 @@ const FALLBACK_ORG = {
 
 export default function CustomerPortal() {
   const { token } = useParams()
+  const navigate = useNavigate()
   const { getJobByShareToken, signOffer, rejectOffer } = useJobs()
   const { org } = useOrg()
+  const { customer: loggedInCustomer } = useCustomerAuth()
 
   const displayOrg = org || FALLBACK_ORG
 
   const job = getJobByShareToken(token)
 
+  // Supabase Realtime: scaffold - aktiveres naar VITE_SUPABASE_URL er sat
+  useJobRealtime(job?.id, () => {
+    // State kommer fra JobsContext som re-rendrer automatisk naar data aendrer
+    // Naar Supabase er paa plads skal JobsContext refetche her.
+  })
+
   const [activePackage, setActivePackage] = useState(null)
   const [customerName, setCustomerName] = useState(() => {
-    return localStorage.getItem('vvs.customerName') || ''
+    return loggedInCustomer?.name || localStorage.getItem('vvs.customerName') || ''
   })
   const [signMode, setSignMode] = useState(null)
 
@@ -95,6 +108,15 @@ export default function CustomerPortal() {
     } else {
       rejectOffer(job.id, { customerName: name, customerEmail: email, reason })
     }
+    // Notifér montøren (kræver edge function i produktion)
+    notifyMontorCustomerAction({
+      job,
+      org: displayOrg,
+      assignedEmail: displayOrg.contact_email,
+      actorName: name,
+      action: signMode === 'approve' ? 'sign_offer' : 'reject',
+      message: signMode === 'reject' ? reason : null,
+    })
     setSignMode(null)
   }
 
@@ -189,6 +211,64 @@ export default function CustomerPortal() {
                 kommentar, eller godkende pakken. Den samlede pris opdateres automatisk.
               </p>
             </div>
+          </div>
+        </section>
+
+        <section className="card p-5 bg-gradient-to-br from-white to-sky-50">
+          <div className="flex items-start gap-3">
+            {loggedInCustomer ? (
+              <>
+                <div className="w-10 h-10 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center flex-shrink-0">
+                  <History className="w-5 h-5" strokeWidth={2} />
+                </div>
+                <div className="flex-1">
+                  <h3 className="font-bold text-slate-900">Logget ind som {loggedInCustomer.name}</h3>
+                  <p className="text-xs text-slate-600 mb-3">
+                    Se alle dine tilbud samlet ét sted.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => navigate('/kunde')}
+                    className="btn-secondary"
+                  >
+                    <History className="w-4 h-4 text-slate-700" strokeWidth={2} />
+                    Se mine tilbud
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="w-10 h-10 rounded-2xl bg-sky-100 text-sky-700 flex items-center justify-center flex-shrink-0">
+                  <UserPlus className="w-5 h-5" strokeWidth={2} />
+                </div>
+                <div className="flex-1">
+                  <h3 className="font-bold text-slate-900">Opret konto for historik</h3>
+                  <p className="text-xs text-slate-600 mb-3">
+                    Få adgang til alle dine tilbud samlet ét sted — valgfrit.
+                  </p>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        navigate('/kunde/login', {
+                          state: { mode: 'signup', email: job.customer.email, from: `/k/${token}` },
+                        })
+                      }
+                      className="btn-primary"
+                    >
+                      Opret konto
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => navigate('/kunde/login', { state: { from: `/k/${token}` } })}
+                      className="btn-secondary"
+                    >
+                      Log ind
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
         </section>
 

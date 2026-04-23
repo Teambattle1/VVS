@@ -16,12 +16,15 @@ import clsx from 'clsx'
 import { useOrg } from '../../contexts/OrgContext.jsx'
 import { useAuth } from '../../contexts/AuthContext.jsx'
 import { SUBSCRIPTION_TIERS, SUBSCRIPTION_STATUSES } from '../../lib/mockOrgs.js'
+import { notifyNewOrgWelcome } from '../../lib/notifications.js'
+import { useToast } from '../../contexts/ToastContext.jsx'
 import BrandIcon from '../../components/BrandIcon.jsx'
 
 export default function SuperAdminOrganizations() {
   const navigate = useNavigate()
   const { allOrgs, addOrg } = useOrg()
   const { signOut } = useAuth()
+  const toast = useToast()
   const [query, setQuery] = useState('')
   const [creating, setCreating] = useState(false)
 
@@ -112,8 +115,12 @@ export default function SuperAdminOrganizations() {
           onClose={() => setCreating(false)}
           onCreate={(data) => {
             const newOrg = addOrg(data)
+            const onboardingUrl = `${window.location.origin}/onboarding?org=${newOrg.id}`
+            if (newOrg.contact_email) {
+              notifyNewOrgWelcome({ org: newOrg, adminEmail: newOrg.contact_email, onboardingUrl })
+            }
+            toast.success(`${newOrg.name} oprettet`)
             setCreating(false)
-            // Gå til onboarding så org-admin kan færdiggøre opsætningen
             navigate(`/onboarding?org=${newOrg.id}`)
           }}
         />

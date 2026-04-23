@@ -3,9 +3,12 @@ import { Plus, Edit2, Trash2, Check, X, Mail, Phone, Shield, User as UserIcon } 
 import clsx from 'clsx'
 import { useOrg } from '../../contexts/OrgContext.jsx'
 import { ROLES } from '../../lib/mockUsers.js'
+import { notifyInviteTeamMember } from '../../lib/notifications.js'
+import { useToast } from '../../contexts/ToastContext.jsx'
 
 export default function AdminUsers() {
-  const { team, addTeamMember, updateTeamMember, removeTeamMember } = useOrg()
+  const { team, addTeamMember, updateTeamMember, removeTeamMember, org } = useOrg()
+  const toast = useToast()
   const [editing, setEditing] = useState(null)
 
   return (
@@ -93,8 +96,20 @@ export default function AdminUsers() {
           user={editing === 'new' ? null : editing}
           onClose={() => setEditing(null)}
           onSave={(data) => {
-            if (editing === 'new') addTeamMember(data)
-            else updateTeamMember(editing.id, data)
+            if (editing === 'new') {
+              const newUser = addTeamMember(data)
+              const acceptUrl = `${window.location.origin}/login?invite=${newUser.id}`
+              notifyInviteTeamMember({
+                email: data.email,
+                name: data.name,
+                orgName: org?.name || 'VVS FLOW',
+                acceptUrl,
+              })
+              toast.success(`Invitation sendt til ${data.email}`)
+            } else {
+              updateTeamMember(editing.id, data)
+              toast.success('Bruger opdateret')
+            }
             setEditing(null)
           }}
         />

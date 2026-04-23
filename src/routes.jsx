@@ -18,7 +18,10 @@ const AdminItems       = lazy(() => import('./pages/admin/Items.jsx'))
 const AdminUsers       = lazy(() => import('./pages/admin/Users.jsx'))
 const AdminSettings    = lazy(() => import('./pages/admin/Settings.jsx'))
 const AdminIntegrations = lazy(() => import('./pages/admin/Integrations.jsx'))
+const AdminActivity    = lazy(() => import('./pages/admin/Activity.jsx'))
 const SuperAdminOrganizations = lazy(() => import('./pages/superadmin/Organizations.jsx'))
+const CustomerLogin    = lazy(() => import('./pages/CustomerLogin.jsx'))
+const CustomerHistory  = lazy(() => import('./pages/CustomerHistory.jsx'))
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth()
@@ -50,6 +53,8 @@ export default function AppRoutes() {
   return (
     <Routes>
       <Route path="/k/:token" element={<Lazy><CustomerPortal /></Lazy>} />
+      <Route path="/kunde/login" element={<Lazy><CustomerLogin /></Lazy>} />
+      <Route path="/kunde"       element={<Lazy><CustomerHistory /></Lazy>} />
 
       <Route
         path="/login"
@@ -106,6 +111,7 @@ export default function AppRoutes() {
         <Route path="packages"     element={<Lazy><AdminPackages /></Lazy>} />
         <Route path="items"        element={<Lazy><AdminItems /></Lazy>} />
         <Route path="users"        element={<Lazy><AdminUsers /></Lazy>} />
+        <Route path="activity"     element={<Lazy><AdminActivity /></Lazy>} />
         <Route path="settings"     element={<Lazy><AdminSettings /></Lazy>} />
         <Route path="integrations" element={<Lazy><AdminIntegrations /></Lazy>} />
       </Route>

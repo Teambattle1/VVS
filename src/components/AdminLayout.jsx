@@ -8,6 +8,7 @@ import {
   LogOut,
   FileText,
   Plug,
+  Activity,
 } from 'lucide-react'
 import clsx from 'clsx'
 import { useAuth } from '../contexts/AuthContext.jsx'
@@ -18,6 +19,7 @@ const NAV = [
   { to: '/admin/packages', label: 'Pakke-skabeloner', icon: Package },
   { to: '/admin/items', label: 'Varedatabase', icon: Boxes },
   { to: '/admin/users', label: 'Team', icon: Users2 },
+  { to: '/admin/activity', label: 'Aktivitetslog', icon: Activity },
   { to: '/admin/settings', label: 'Indstillinger', icon: SettingsIcon },
   { to: '/admin/integrations', label: 'Integrationer', icon: Plug },
 ]

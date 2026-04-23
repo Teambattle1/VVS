@@ -17,6 +17,8 @@ import clsx from 'clsx'
 import { useJobs } from '../contexts/JobsContext.jsx'
 import { useOrg } from '../contexts/OrgContext.jsx'
 import { useToast } from '../contexts/ToastContext.jsx'
+import { notifyCustomerOfferSent } from '../lib/notifications.js'
+import { useJobRealtime } from '../hooks/useRealtime.js'
 import { STATUS_LABELS } from '../lib/mockJobs.js'
 import { ROOM_TYPES } from '../lib/mockTemplates.js'
 import { jobTotal, roomTotal } from '../lib/pricing.js'
@@ -33,6 +35,11 @@ export default function JobDetail() {
   const toast = useToast()
   const [showAddRoom, setShowAddRoom] = useState(false)
   const [exporting, setExporting] = useState(false)
+
+  // Supabase Realtime scaffold - lyt paa kunde-handlinger
+  useJobRealtime(jobId, () => {
+    // State synkes via JobsContext. Naar rigtig Supabase forbindes skal JobsContext refetche.
+  })
 
   const job = getJob(jobId)
   if (!job) {
@@ -58,7 +65,18 @@ export default function JobDetail() {
   function handleShare() {
     const url = `${window.location.origin}/k/${job.share_token || job.id}`
     navigator.clipboard?.writeText(url)
-    toast.success('Kundelink kopieret til udklipsholder')
+    // Send invitation til kunden (email + SMS hvis telefon findes)
+    notifyCustomerOfferSent({
+      job,
+      customer: job.customer,
+      org,
+      shareUrl: url,
+    })
+    // Marker som sendt hvis stadig i draft
+    if (job.status === 'draft') {
+      updateJob(job.id, { status: 'sent' })
+    }
+    toast.success('Kundelink kopieret + sendt til kunden')
     window.open(url, '_blank')
   }
 

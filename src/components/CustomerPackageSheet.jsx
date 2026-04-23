@@ -13,6 +13,7 @@ import {
 import clsx from 'clsx'
 import { useJobs } from '../contexts/JobsContext.jsx'
 import { packageTotal, formatDKK, toInclVat } from '../lib/pricing.js'
+import { notifyMontorCustomerAction } from '../lib/notifications.js'
 import LucideByName from './LucideByName.jsx'
 import PhotoGallery from './PhotoGallery.jsx'
 
@@ -54,11 +55,25 @@ export default function CustomerPackageSheet({
 
   function handleApprove() {
     approvePackage(job.id, room.id, pkg.id, customerName)
+    notifyMontorCustomerAction({
+      job,
+      org: null,
+      actorName: customerName,
+      action: 'approve',
+      message: `Godkendte pakken ${pkg.name}`,
+    })
   }
 
   function handleReject() {
     const reason = prompt('Hvorfor afviser du denne pakke? (valgfrit)') || ''
     rejectPackage(job.id, room.id, pkg.id, { customerName, reason })
+    notifyMontorCustomerAction({
+      job,
+      org: null,
+      actorName: customerName,
+      action: 'reject',
+      message: `Afviste ${pkg.name}${reason ? `: ${reason}` : ''}`,
+    })
   }
 
   function handleSendComment() {
@@ -68,6 +83,13 @@ export default function CustomerPackageSheet({
       roomPackageId: pkg.id,
       message: commentText.trim(),
       customerName,
+    })
+    notifyMontorCustomerAction({
+      job,
+      org: null,
+      actorName: customerName,
+      action: 'comment',
+      message: commentText.trim(),
     })
     setCommentText('')
     setTimeout(() => setSendingComment(false), 200)
