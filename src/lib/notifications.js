@@ -13,6 +13,10 @@ import { hasSupabase, supabase } from './supabase.js'
 
 const ENABLED = hasSupabase
 
+// Husk hvilke edge functions der er utilgaengelige, saa vi ikke spammer
+// brugerens netvaerk/console med samme 404/CORS-preflight-fejl hver gang.
+const unavailable = new Set()
+
 async function callEdgeFunction(name, payload) {
   if (!ENABLED) {
     // Mock-mode: log hvad der ville blive sendt
@@ -20,14 +24,33 @@ async function callEdgeFunction(name, payload) {
     console.info(`[notifications] MOCK ${name}`, payload)
     return { ok: true, mocked: true }
   }
+  if (unavailable.has(name)) {
+    return { ok: false, skipped: true, reason: 'edge-function-unavailable' }
+  }
   try {
     const { data, error } = await supabase.functions.invoke(name, { body: payload })
     if (error) throw error
     return { ok: true, data }
   } catch (err) {
-    // eslint-disable-next-line no-console
-    console.error(`[notifications] ${name} failed`, err)
-    return { ok: false, error: err.message }
+    const msg = String(err?.message || err)
+    const isNetworkOrMissing =
+      /Failed to send a request/i.test(msg) ||
+      /Failed to fetch/i.test(msg) ||
+      /CORS/i.test(msg) ||
+      /NetworkError/i.test(msg) ||
+      err?.status === 404 ||
+      err?.status === 405
+    if (isNetworkOrMissing) {
+      unavailable.add(name)
+      // eslint-disable-next-line no-console
+      console.info(
+        `[notifications] ${name} er ikke deployet endnu — marker-stille-igen. Handling lykkedes, email/SMS blev sprunget over.`
+      )
+    } else {
+      // eslint-disable-next-line no-console
+      console.warn(`[notifications] ${name} failed`, msg)
+    }
+    return { ok: false, error: msg }
   }
 }
 
