@@ -120,16 +120,18 @@ export function AuthProvider({ children }) {
     }
 
     if (hasSupabase) {
+      // Foerst: check demo-team (CREW) FOER Supabase Auth for at undgaa 400-stoej
+      // i console for brugere der kun findes i vvs_login_candidates.
+      const demoUser = await tryDemoTeamLogin(email, password)
+      if (demoUser) {
+        setUser(demoUser)
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(demoUser))
+        logAuthEvent({ type: 'login', userId: demoUser.id, userEmail: demoUser.email, userName: demoUser.name })
+        return demoUser
+      }
+
       const { data, error } = await supabase.auth.signInWithPassword({ email, password })
       if (error) {
-        // Fallback: demo-team (CREW i Settings) bruger default 1234 og findes ikke i Supabase Auth
-        const demoUser = await tryDemoTeamLogin(email, password)
-        if (demoUser) {
-          setUser(demoUser)
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(demoUser))
-          logAuthEvent({ type: 'login', userId: demoUser.id, userEmail: demoUser.email, userName: demoUser.name })
-          return demoUser
-        }
         if (error.message.toLowerCase().includes('invalid')) {
           throw new Error('Forkert email eller adgangskode')
         }
