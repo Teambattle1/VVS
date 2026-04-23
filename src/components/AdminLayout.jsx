@@ -14,6 +14,7 @@ import clsx from 'clsx'
 import { useAuth } from '../contexts/AuthContext.jsx'
 import { useOrg } from '../contexts/OrgContext.jsx'
 import OrgLogo from './OrgLogo.jsx'
+import ThemeToggle from './ThemeToggle.jsx'
 
 const NAV = [
   { to: '/admin/packages', label: 'Pakke-skabeloner', icon: Package },
@@ -47,8 +48,8 @@ export default function AdminLayout() {
   const initials = getInitials(user)
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-20">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
+      <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 sticky top-0 z-20">
         <div className="max-w-7xl mx-auto px-4 md:px-6 py-3 flex items-center gap-3">
           <button
             type="button"

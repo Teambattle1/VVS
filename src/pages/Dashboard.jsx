@@ -24,6 +24,7 @@ import { STATUS_LABELS } from '../lib/mockJobs.js'
 import { priceLabel } from '../lib/pricing.js'
 import OrgLogo from '../components/OrgLogo.jsx'
 import MontorTour from '../components/MontorTour.jsx'
+import ThemeToggle from '../components/ThemeToggle.jsx'
 
 const STATUS_FILTERS = [
   { value: 'all', label: 'Alle', activeClass: 'bg-slate-900 text-white border-slate-900' },
@@ -59,8 +60,8 @@ export default function Dashboard() {
   const totalPipeline = jobs.reduce((sum, j) => sum + (j.total_price_excl_vat || 0), 0)
 
   return (
-    <div className="min-h-screen pb-24 lg:pb-8 bg-slate-50">
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-30">
+    <div className="min-h-screen pb-24 lg:pb-8 bg-slate-50 dark:bg-slate-950">
+      <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 sticky top-0 z-30">
         <div className="max-w-5xl mx-auto px-4 md:px-6 py-3 flex items-center gap-3">
           <OrgLogo org={org} size={40} />
           <div className="flex-1 min-w-0">
@@ -81,9 +82,10 @@ export default function Dashboard() {
               <span className="text-[10px] text-slate-500 truncate">{user?.email}</span>
             </div>
           </div>
+          <ThemeToggle />
           <Link
             to="/super"
-            className="hidden md:inline-flex items-center justify-center w-10 h-10 rounded-2xl text-slate-500 hover:bg-slate-100"
+            className="hidden md:inline-flex items-center justify-center w-10 h-10 rounded-2xl text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
             aria-label="Super-admin"
             title="Super-admin"
           >
