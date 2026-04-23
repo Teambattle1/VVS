@@ -1,15 +1,19 @@
-import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react'
-import { ImagePlus, Check, X, Palette, Building2, Loader2, Save } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { ImagePlus, Check, X, Palette, Building2, Loader2, Save, Search as SearchIcon } from 'lucide-react'
 import clsx from 'clsx'
 import { useOrg } from '../../contexts/OrgContext.jsx'
+import { useToast } from '../../contexts/ToastContext.jsx'
+import { lookupCvr } from '../../lib/cvrLookup.js'
 
 const PRESET_COLORS = ['#0EA5E9', '#DC2626', '#059669', '#7C3AED', '#EA580C', '#0F172A']
 const ACCENT_COLORS = ['#F59E0B', '#EC4899', '#06B6D4', '#84CC16', '#6366F1', '#F43F5E']
 
 export default function AdminSettings() {
   const { org, updateOrg } = useOrg()
+  const toast = useToast()
   const [status, setStatus] = useState('idle') // idle | dirty | saving | saved
   const [hasPending, setHasPending] = useState(false)
+  const [cvrLoading, setCvrLoading] = useState(false)
   const fileRef = useRef(null)
   const savedTimerRef = useRef(null)
   const inputRefs = useRef(new Set())
@@ -42,6 +46,42 @@ export default function AdminSettings() {
   function handleSaveClick() {
     flushAll()
     // Efter flush vil handleField blive kaldt af hver input med pending værdi
+  }
+
+  async function handleCvrLookup() {
+    const cvr = (org.cvr || '').trim()
+    if (!cvr) {
+      toast.error('Indtast CVR-nummer først')
+      return
+    }
+    setCvrLoading(true)
+    try {
+      const info = await lookupCvr(cvr)
+      const patch = {}
+      if (info.name && !org.name?.trim()) patch.name = info.name
+      if (info.name && org.name?.trim() !== info.name) {
+        // Overwrite kun hvis brugeren bekræfter
+        if (confirm(`Skift firmanavn til "${info.name}"?`)) patch.name = info.name
+      }
+      if (info.full_address) patch.address = info.full_address
+      if (info.email && !org.contact_email?.trim()) patch.contact_email = info.email
+      if (info.phone && !org.contact_phone?.trim()) patch.contact_phone = info.phone
+
+      if (Object.keys(patch).length === 0) {
+        toast.info(`${info.name} fundet — ingen felter opdateret`)
+      } else {
+        await updateOrg(patch)
+        setStatus('saved')
+        setHasPending(false)
+        clearTimeout(savedTimerRef.current)
+        savedTimerRef.current = setTimeout(() => setStatus('idle'), 2500)
+        toast.success(`${info.name} hentet fra CVR`)
+      }
+    } catch (err) {
+      toast.error(err.message || 'CVR-opslag fejlede')
+    } finally {
+      setCvrLoading(false)
+    }
   }
 
   function handleLogoUpload(e) {
@@ -91,13 +131,40 @@ export default function AdminSettings() {
         </Field>
         <div className="grid grid-cols-2 gap-3">
           <Field label="CVR">
-            <DebouncedInput
-              value={org.cvr || ''}
-              onSave={(v) => handleField('cvr', v)}
-              onPendingChange={setHasPending}
-              registerApi={registerInput}
-              type="text"
-            />
+            <div className="flex gap-2">
+              <div className="flex-1">
+                <DebouncedInput
+                  value={org.cvr || ''}
+                  onSave={(v) => handleField('cvr', v)}
+                  onPendingChange={setHasPending}
+                  registerApi={registerInput}
+                  type="text"
+                  placeholder="12345678"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={handleCvrLookup}
+                disabled={cvrLoading}
+                className="btn-secondary flex-shrink-0"
+                title="Hent firmainfo fra CVR-registret"
+              >
+                {cvrLoading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 text-slate-700 animate-spin" strokeWidth={2} />
+                    Søger…
+                  </>
+                ) : (
+                  <>
+                    <SearchIcon className="w-4 h-4 text-slate-700" strokeWidth={2} />
+                    Slå op
+                  </>
+                )}
+              </button>
+            </div>
+            <p className="text-[11px] text-slate-500 mt-1">
+              Indtast 8-cifret CVR-nummer og klik &quot;Slå op&quot; for at hente adresse + kontakt automatisk.
+            </p>
           </Field>
           <Field label="Abonnement">
             <input
@@ -247,14 +314,16 @@ function SaveIndicator({ status }) {
 // - Gemmer efter 500ms (eller ved blur eller ved eksternt flush())
 // - Signalerer pending-state opad via onPendingChange
 // - Registerer en flush-API saa "Gem alle"-knap kan tvinge gem paa tvaers af felter
-function DebouncedInput({
-  value,
-  onSave,
-  onPendingChange,
-  registerApi,
-  delay = 500,
-  ...props
-}) {
+// Eksplicit destructuring saa onPendingChange/registerApi/onSave ikke laekker til <input>
+function DebouncedInput(allProps) {
+  const {
+    value,
+    onSave,
+    onPendingChange,
+    registerApi,
+    delay = 500,
+    ...props
+  } = allProps
   const [local, setLocal] = useState(value ?? '')
   const timerRef = useRef(null)
   const dirtyRef = useRef(false)

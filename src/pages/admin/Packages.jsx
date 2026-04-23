@@ -1,9 +1,10 @@
 import { useMemo, useState } from 'react'
-import { Plus, Edit2, Trash2, Power, Search, X, Check } from 'lucide-react'
+import { Plus, Edit2, Trash2, Power, Search, X, Check, Sparkles, Trash } from 'lucide-react'
 import clsx from 'clsx'
 import { useJobs } from '../../contexts/JobsContext.jsx'
-import { ROOM_TYPES } from '../../lib/mockTemplates.js'
 import { formatDKK } from '../../lib/pricing.js'
+import { DEMO_TEMPLATES, isDemoTemplate } from '../../lib/demoTemplates.js'
+import { useToast } from '../../contexts/ToastContext.jsx'
 import LucideByName from '../../components/LucideByName.jsx'
 
 const CATEGORIES = [
@@ -23,9 +24,24 @@ const PRICING_MODELS = [
 
 export default function AdminPackages() {
   const { templates, createTemplate, updateTemplate, deleteTemplate, toggleTemplateActive } = useJobs()
+  const toast = useToast()
   const [query, setQuery] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('all')
   const [editing, setEditing] = useState(null) // template object or 'new'
+
+  const demoTemplates = useMemo(() => templates.filter(isDemoTemplate), [templates])
+
+  function handleAddDemo() {
+    DEMO_TEMPLATES.forEach((t) => createTemplate(t))
+    toast.success(`${DEMO_TEMPLATES.length} demo-pakker tilføjet`)
+  }
+
+  function handleRemoveAllDemo() {
+    if (!demoTemplates.length) return
+    if (!confirm(`Fjern ${demoTemplates.length} demo-pakker?`)) return
+    demoTemplates.forEach((t) => deleteTemplate(t.id))
+    toast.success(`${demoTemplates.length} demo-pakker fjernet`)
+  }
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -42,7 +58,9 @@ export default function AdminPackages() {
         <div>
           <h1 className="text-xl font-bold text-slate-900">Pakke-skabeloner</h1>
           <p className="text-sm text-slate-500">
-            {templates.length} pakker · Rediger priser og timer for din org.
+            {templates.length} pakker
+            {demoTemplates.length > 0 && <span className="text-amber-700 font-semibold"> · {demoTemplates.length} demo</span>}
+            {' '}· Rediger priser og timer for din org.
           </p>
         </div>
         <button
@@ -54,6 +72,46 @@ export default function AdminPackages() {
           Ny pakke
         </button>
       </header>
+
+      <div className="card p-4 flex flex-col md:flex-row md:items-center gap-3 bg-gradient-to-br from-amber-50 to-white border-amber-200">
+        <div className="flex items-start gap-3 flex-1">
+          <div className="w-10 h-10 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center flex-shrink-0">
+            <Sparkles className="w-5 h-5" strokeWidth={2} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="text-sm font-bold text-slate-900">Demo-pakker</div>
+            <p className="text-xs text-slate-600">
+              Prøv appen med {DEMO_TEMPLATES.length} eksempel-pakker. Alle markeres med{' '}
+              <span className="chip bg-amber-100 text-amber-800 text-[10px] font-bold">DEMO</span>
+              {' '}så de kan fjernes samlet igen.
+            </p>
+          </div>
+        </div>
+        <div className="flex gap-2 flex-shrink-0">
+          <button
+            type="button"
+            onClick={handleAddDemo}
+            className="btn-secondary border-amber-300 text-amber-800 hover:bg-amber-100"
+          >
+            <Plus className="w-4 h-4" strokeWidth={2.25} />
+            Tilføj demo-pakker
+          </button>
+          <button
+            type="button"
+            onClick={handleRemoveAllDemo}
+            disabled={demoTemplates.length === 0}
+            className={clsx(
+              'btn-secondary',
+              demoTemplates.length === 0
+                ? 'opacity-40 cursor-not-allowed'
+                : 'border-rose-300 text-rose-700 hover:bg-rose-50'
+            )}
+          >
+            <Trash className="w-4 h-4" strokeWidth={2} />
+            Fjern alle demo
+          </button>
+        </div>
+      </div>
 
       <div className="flex flex-col md:flex-row md:items-center gap-3">
         <div className="relative flex-1">
@@ -103,7 +161,12 @@ export default function AdminPackages() {
                   <LucideByName name={t.lucide_icon} className="w-5 h-5" strokeWidth={2} />
                 </div>
                 <div className="min-w-0">
-                  <div className="text-sm font-semibold text-slate-900 truncate">{t.name}</div>
+                  <div className="text-sm font-semibold text-slate-900 truncate flex items-center gap-1.5">
+                    {isDemoTemplate(t) && (
+                      <span className="chip bg-amber-100 text-amber-800 text-[10px] font-bold flex-shrink-0">DEMO</span>
+                    )}
+                    {t.name}
+                  </div>
                   <div className="text-xs text-slate-500 md:hidden">
                     {catLabel} · {pricingLabel}
                   </div>
