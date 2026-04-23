@@ -26,6 +26,13 @@ const SHAPES = [
   { value: 'diamond', label: 'Rombe',   icon: Diamond },
 ]
 
+const SIZES = [
+  { value: 'sm', label: 'S', px: 32 },
+  { value: 'md', label: 'M', px: 44 },
+  { value: 'lg', label: 'L', px: 60 },
+  { value: 'xl', label: 'XL', px: 80 },
+]
+
 const MARKER_COLORS = [
   '#E11D48', // rose
   '#0EA5E9', // sky
@@ -129,6 +136,37 @@ export default function PackageDetail({ jobId, roomId, pkg, onClose }) {
                       >
                         <Icon className="w-5 h-5" strokeWidth={s.stroke || 2} />
                         <span className="text-[10px] font-semibold">{s.label}</span>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+              <div>
+                <div className="text-[11px] text-slate-500 mb-1">Størrelse</div>
+                <div className="grid grid-cols-4 gap-1.5">
+                  {SIZES.map((s) => {
+                    const active = (pkg.size || 'md') === s.value
+                    return (
+                      <button
+                        key={s.value}
+                        type="button"
+                        onClick={() => setField({ size: s.value })}
+                        className={clsx(
+                          'rounded-2xl border-2 py-2 flex flex-col items-center gap-1 transition-colors',
+                          active
+                            ? 'border-sky-500 bg-sky-50 text-sky-700'
+                            : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
+                        )}
+                      >
+                        <div
+                          className="rounded-full"
+                          style={{
+                            width: Math.max(10, s.px / 4),
+                            height: Math.max(10, s.px / 4),
+                            backgroundColor: active ? '#0EA5E9' : '#94A3B8',
+                          }}
+                        />
+                        <span className="text-[10px] font-bold">{s.label}</span>
                       </button>
                     )
                   })}

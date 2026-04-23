@@ -294,6 +294,13 @@ export default function FloorplanCanvas({
   )
 }
 
+const SIZE_MAP = {
+  sm: { box: 32, icon: 16 },
+  md: { box: 44, icon: 22 },
+  lg: { box: 60, icon: 30 },
+  xl: { box: 80, icon: 40 },
+}
+
 function PackageMarker({
   pkg,
   innerW,
@@ -310,6 +317,7 @@ function PackageMarker({
   const [hover, setHover] = useState(false)
   const color = pkg.color || DEFAULT_COLOR
   const shape = pkg.shape || 'circle'
+  const { box: boxSize, icon: iconSize } = SIZE_MAP[pkg.size || 'md'] || SIZE_MAP.md
   const total = packageTotal(pkg)
   const px = pkg.position_x * innerW
   const py = pkg.position_y * innerH
@@ -319,7 +327,9 @@ function PackageMarker({
   const transform = shape === 'diamond' ? 'rotate(45deg)' : undefined
 
   // Halv-transparent ved hover saa brugeren kan se tegning/grid nedenunder
-  const hoverOpacity = hover && !dragging && !selected ? 0.35 : 1
+  // MEN kun hvis ikke billeder at vise (ellers holdes fuld saa billed-popup kan ses)
+  const hasPhotos = (pkg.photos?.length || 0) > 0
+  const hoverOpacity = hover && !dragging && !selected && !hasPhotos ? 0.35 : 1
 
   return (
     <div
@@ -352,8 +362,8 @@ function PackageMarker({
       <div
         className="flex items-center justify-center shadow-md transition-all"
         style={{
-          width: 44,
-          height: 44,
+          width: boxSize,
+          height: boxSize,
           borderRadius: shapeRadius,
           backgroundColor: selected ? color : '#ffffff',
           border: `2.5px solid ${color}`,
@@ -368,13 +378,35 @@ function PackageMarker({
             name={pkg.lucide_icon}
             strokeWidth={2.25}
             style={{
-              width: 22,
-              height: 22,
+              width: iconSize,
+              height: iconSize,
               color: selected ? '#ffffff' : color,
             }}
           />
         </div>
       </div>
+
+      {/* Billede-thumbs popup ved hover */}
+      {hover && hasPhotos && !dragging && (
+        <div
+          className="absolute left-1/2 -translate-x-1/2 pointer-events-none z-50 flex gap-1 p-1.5 bg-white dark:bg-slate-900 rounded-xl shadow-xl border border-slate-200 dark:border-slate-700"
+          style={{ bottom: `calc(100% + 4px)` }}
+        >
+          {pkg.photos.slice(0, 4).map((p) => (
+            <img
+              key={p.id}
+              src={p.url}
+              alt={p.name || 'Foto'}
+              className="w-14 h-14 rounded-lg object-cover flex-shrink-0"
+            />
+          ))}
+          {pkg.photos.length > 4 && (
+            <div className="w-14 h-14 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-xs font-bold text-slate-600 dark:text-slate-300 flex-shrink-0">
+              +{pkg.photos.length - 4}
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="mt-1 px-2 py-0.5 rounded-lg bg-white/95 shadow-sm max-w-[120px] text-center">
         <div className="text-[10px] font-bold text-slate-900 leading-tight truncate">
