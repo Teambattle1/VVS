@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from 'react'
-import { ImagePlus, Check, X, Palette, Building2, Loader2 } from 'lucide-react'
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react'
+import { ImagePlus, Check, X, Palette, Building2, Loader2, Save } from 'lucide-react'
 import clsx from 'clsx'
 import { useOrg } from '../../contexts/OrgContext.jsx'
 
@@ -8,9 +8,21 @@ const ACCENT_COLORS = ['#F59E0B', '#EC4899', '#06B6D4', '#84CC16', '#6366F1', '#
 
 export default function AdminSettings() {
   const { org, updateOrg } = useOrg()
-  const [status, setStatus] = useState('idle') // idle | saving | saved
+  const [status, setStatus] = useState('idle') // idle | dirty | saving | saved
+  const [hasPending, setHasPending] = useState(false)
   const fileRef = useRef(null)
   const savedTimerRef = useRef(null)
+  const inputRefs = useRef(new Set())
+
+  // Register/unregister DebouncedInput refs for global flush
+  function registerInput(inputApi) {
+    inputRefs.current.add(inputApi)
+    return () => inputRefs.current.delete(inputApi)
+  }
+
+  function flushAll() {
+    inputRefs.current.forEach((api) => api.flush?.())
+  }
 
   if (!org) return null
 
@@ -20,10 +32,16 @@ export default function AdminSettings() {
     try {
       await updateOrg({ [field]: value })
       setStatus('saved')
+      setHasPending(false)
       savedTimerRef.current = setTimeout(() => setStatus('idle'), 2500)
     } catch {
       setStatus('idle')
     }
+  }
+
+  function handleSaveClick() {
+    flushAll()
+    // Efter flush vil handleField blive kaldt af hver input med pending værdi
   }
 
   function handleLogoUpload(e) {
@@ -37,14 +55,28 @@ export default function AdminSettings() {
 
   return (
     <div className="space-y-5">
-      <header className="flex items-center justify-between gap-3 flex-wrap">
+      <header className="flex items-center justify-between gap-3 flex-wrap sticky top-0 bg-slate-50/95 backdrop-blur py-2 -mt-2 z-10">
         <div>
           <h1 className="text-xl font-bold text-slate-900">Indstillinger</h1>
           <p className="text-sm text-slate-500">
-            Auto-gemmes til Supabase · farver/numre straks, tekst når du klikker væk
+            Auto-gemmes løbende · klik &quot;Gem alle&quot; for at gemme alle ændringer straks
           </p>
         </div>
-        <SaveIndicator status={status} />
+        <div className="flex items-center gap-2">
+          <SaveIndicator status={status} />
+          <button
+            type="button"
+            onClick={handleSaveClick}
+            disabled={!hasPending && status !== 'saving'}
+            className={clsx(
+              'btn-primary',
+              !hasPending && status !== 'saving' && 'opacity-50 cursor-not-allowed'
+            )}
+          >
+            <Save className="w-4 h-4 text-white" strokeWidth={2.25} />
+            Gem alle
+          </button>
+        </div>
       </header>
 
       <Section title="Organisation" icon={Building2}>
@@ -52,6 +84,8 @@ export default function AdminSettings() {
           <DebouncedInput
             value={org.name || ''}
             onSave={(v) => handleField('name', v)}
+            onPendingChange={setHasPending}
+            registerApi={registerInput}
             type="text"
           />
         </Field>
@@ -60,6 +94,8 @@ export default function AdminSettings() {
             <DebouncedInput
               value={org.cvr || ''}
               onSave={(v) => handleField('cvr', v)}
+              onPendingChange={setHasPending}
+              registerApi={registerInput}
               type="text"
             />
           </Field>
@@ -76,6 +112,8 @@ export default function AdminSettings() {
           <DebouncedInput
             value={org.address || ''}
             onSave={(v) => handleField('address', v)}
+            onPendingChange={setHasPending}
+            registerApi={registerInput}
             type="text"
           />
         </Field>
@@ -84,6 +122,8 @@ export default function AdminSettings() {
             <DebouncedInput
               value={org.contact_email || ''}
               onSave={(v) => handleField('contact_email', v)}
+              onPendingChange={setHasPending}
+              registerApi={registerInput}
               type="email"
             />
           </Field>
@@ -91,6 +131,8 @@ export default function AdminSettings() {
             <DebouncedInput
               value={org.contact_phone || ''}
               onSave={(v) => handleField('contact_phone', v)}
+              onPendingChange={setHasPending}
+              registerApi={registerInput}
               type="tel"
             />
           </Field>
@@ -155,6 +197,8 @@ export default function AdminSettings() {
               min="0"
               value={org.default_hourly_rate || 0}
               onSave={(v) => handleField('default_hourly_rate', Number(v) || 0)}
+              onPendingChange={setHasPending}
+              registerApi={registerInput}
             />
           </Field>
           <Field label="Standard markup på varer (%)">
@@ -164,6 +208,8 @@ export default function AdminSettings() {
               max="200"
               value={org.default_markup_percent || 0}
               onSave={(v) => handleField('default_markup_percent', Number(v) || 0)}
+              onPendingChange={setHasPending}
+              registerApi={registerInput}
             />
           </Field>
         </div>
@@ -196,20 +242,41 @@ function SaveIndicator({ status }) {
   )
 }
 
-// Debounced input: opdaterer lokal state straks, sender kun til onSave
-// 500ms efter sidste keystroke ELLER ved blur.
-function DebouncedInput({ value, onSave, delay = 500, ...props }) {
+// Debounced input:
+// - Opdaterer lokalt straks
+// - Gemmer efter 500ms (eller ved blur eller ved eksternt flush())
+// - Signalerer pending-state opad via onPendingChange
+// - Registerer en flush-API saa "Gem alle"-knap kan tvinge gem paa tvaers af felter
+function DebouncedInput({
+  value,
+  onSave,
+  onPendingChange,
+  registerApi,
+  delay = 500,
+  ...props
+}) {
   const [local, setLocal] = useState(value ?? '')
   const timerRef = useRef(null)
   const dirtyRef = useRef(false)
+  const latestRef = useRef(value ?? '')
 
-  // Hvis prop-værdi ændrer sig udefra og brugeren ikke er i gang med at skrive
+  useEffect(() => {
+    latestRef.current = local
+  }, [local])
+
   useEffect(() => {
     if (!dirtyRef.current) setLocal(value ?? '')
   }, [value])
 
+  function markPending(pending) {
+    if (onPendingChange) onPendingChange((prev) => prev || pending)
+  }
+
   function fire(v) {
-    if (v === (value ?? '')) return
+    if (v === (value ?? '')) {
+      dirtyRef.current = false
+      return
+    }
     onSave?.(v)
     dirtyRef.current = false
   }
@@ -217,6 +284,7 @@ function DebouncedInput({ value, onSave, delay = 500, ...props }) {
   function handleChange(e) {
     const v = e.target.value
     dirtyRef.current = true
+    markPending(true)
     setLocal(v)
     clearTimeout(timerRef.current)
     timerRef.current = setTimeout(() => fire(v), delay)
@@ -224,8 +292,21 @@ function DebouncedInput({ value, onSave, delay = 500, ...props }) {
 
   function handleBlur() {
     clearTimeout(timerRef.current)
-    fire(local)
+    fire(latestRef.current)
   }
+
+  useEffect(() => {
+    if (!registerApi) return
+    const api = {
+      flush() {
+        clearTimeout(timerRef.current)
+        fire(latestRef.current)
+      },
+    }
+    const unreg = registerApi(api)
+    return unreg
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   return (
     <input
