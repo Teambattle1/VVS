@@ -3,17 +3,18 @@ import {
   X,
   Check,
   XCircle,
-  Clock,
   StickyNote,
   CalendarClock,
   MessageSquarePlus,
   Send,
   CheckCircle2,
+  Camera,
 } from 'lucide-react'
 import clsx from 'clsx'
 import { useJobs } from '../contexts/JobsContext.jsx'
 import { packageTotal, formatDKK, toInclVat } from '../lib/pricing.js'
 import LucideByName from './LucideByName.jsx'
+import PhotoGallery from './PhotoGallery.jsx'
 
 export default function CustomerPackageSheet({
   job,
@@ -128,6 +129,16 @@ export default function CustomerPackageSheet({
                 Tidsplan
               </h3>
               <p className="text-sm text-slate-700">{pkg.timeline_text}</p>
+            </section>
+          )}
+
+          {pkg.photos?.length > 0 && (
+            <section>
+              <h3 className="label flex items-center gap-1.5">
+                <Camera className="w-4 h-4 text-slate-500" strokeWidth={2} />
+                Fotos fra VVS&apos;eren
+              </h3>
+              <PhotoGallery photos={pkg.photos} readOnly />
             </section>
           )}
 

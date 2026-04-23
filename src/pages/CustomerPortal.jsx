@@ -88,10 +88,10 @@ export default function CustomerPortal() {
   )
   const totalPackages = (job.rooms || []).reduce((n, r) => n + (r.packages?.length || 0), 0)
 
-  function handleSignConfirm({ name, email, reason }) {
+  function handleSignConfirm({ name, email, reason, signature }) {
     setCustomerName(name)
     if (signMode === 'approve') {
-      signOffer(job.id, { customerName: name, customerEmail: email })
+      signOffer(job.id, { customerName: name, customerEmail: email, signature })
     } else {
       rejectOffer(job.id, { customerName: name, customerEmail: email, reason })
     }

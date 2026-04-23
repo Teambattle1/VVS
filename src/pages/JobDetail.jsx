@@ -16,6 +16,7 @@ import {
 import clsx from 'clsx'
 import { useJobs } from '../contexts/JobsContext.jsx'
 import { useOrg } from '../contexts/OrgContext.jsx'
+import { useToast } from '../contexts/ToastContext.jsx'
 import { STATUS_LABELS } from '../lib/mockJobs.js'
 import { ROOM_TYPES } from '../lib/mockTemplates.js'
 import { jobTotal, roomTotal } from '../lib/pricing.js'
@@ -23,13 +24,13 @@ import PriceSummary from '../components/PriceSummary.jsx'
 import VatToggle from '../components/VatToggle.jsx'
 import AddRoomDialog from '../components/AddRoomDialog.jsx'
 import ActivityFeed from '../components/ActivityFeed.jsx'
-import { downloadOfferPDF } from '../components/OfferPDF.jsx'
 
 export default function JobDetail() {
   const { jobId } = useParams()
   const navigate = useNavigate()
   const { getJob, updateJob, addRoom, deleteRoom } = useJobs()
   const { org } = useOrg()
+  const toast = useToast()
   const [showAddRoom, setShowAddRoom] = useState(false)
   const [exporting, setExporting] = useState(false)
 
@@ -57,16 +58,19 @@ export default function JobDetail() {
   function handleShare() {
     const url = `${window.location.origin}/k/${job.share_token || job.id}`
     navigator.clipboard?.writeText(url)
-    alert(`Kundelink kopieret:\n\n${url}\n\nÅbn i en ny fane for at se kundeportalen.`)
+    toast.success('Kundelink kopieret til udklipsholder')
     window.open(url, '_blank')
   }
 
   async function handleDownloadPDF() {
     setExporting(true)
     try {
+      // Lazy-load PDF-generatoren først ved klik (sparer ~1MB fra initial bundle)
+      const { downloadOfferPDF } = await import('../components/OfferPDF.jsx')
       await downloadOfferPDF(job, org)
+      toast.success('PDF downloadet')
     } catch (err) {
-      alert('Kunne ikke generere PDF: ' + err.message)
+      toast.error('Kunne ikke generere PDF: ' + err.message)
     } finally {
       setExporting(false)
     }

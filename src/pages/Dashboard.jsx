@@ -22,6 +22,7 @@ import { useJobs } from '../contexts/JobsContext.jsx'
 import { STATUS_LABELS } from '../lib/mockJobs.js'
 import { priceLabel } from '../lib/pricing.js'
 import BrandIcon from '../components/BrandIcon.jsx'
+import MontorTour from '../components/MontorTour.jsx'
 
 const STATUS_FILTERS = [
   { value: 'all', label: 'Alle', activeClass: 'bg-slate-900 text-white border-slate-900' },
@@ -161,6 +162,7 @@ export default function Dashboard() {
       </main>
 
       <BottomNav />
+      <MontorTour />
     </div>
   )
 }

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { X, CheckCircle2, PenLine } from 'lucide-react'
 import clsx from 'clsx'
 import { formatDKK, toInclVat } from '../lib/pricing.js'
+import SignaturePad from './SignaturePad.jsx'
 
 export default function SignOfferDialog({
   total,
@@ -14,18 +15,26 @@ export default function SignOfferDialog({
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [reason, setReason] = useState('')
+  const [signature, setSignature] = useState(null)
   const [submitting, setSubmitting] = useState(false)
 
   const canSubmit =
     name.trim().length >= 2 &&
-    (mode === 'reject' || /.+@.+\..+/.test(email))
+    (mode === 'reject'
+      ? true
+      : /.+@.+\..+/.test(email) && signature)
 
   async function handleSubmit(e) {
     e.preventDefault()
     if (!canSubmit) return
     setSubmitting(true)
     await new Promise((r) => setTimeout(r, 300))
-    onConfirm({ name: name.trim(), email: email.trim(), reason: reason.trim() })
+    onConfirm({
+      name: name.trim(),
+      email: email.trim(),
+      reason: reason.trim(),
+      signature,
+    })
   }
 
   const isReject = mode === 'reject'
@@ -92,19 +101,26 @@ export default function SignOfferDialog({
           </div>
 
           {!isReject && (
-            <div>
-              <label htmlFor="sign-email" className="label">Din email</label>
-              <input
-                id="sign-email"
-                type="email"
-                className="input"
-                placeholder="din@email.dk"
-                autoComplete="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
-            </div>
+            <>
+              <div>
+                <label htmlFor="sign-email" className="label">Din email</label>
+                <input
+                  id="sign-email"
+                  type="email"
+                  className="input"
+                  placeholder="din@email.dk"
+                  autoComplete="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="label">Din underskrift</label>
+                <SignaturePad value={signature} onChange={setSignature} />
+              </div>
+            </>
           )}
 
           {isReject && (

@@ -7,6 +7,7 @@ import {
   ArrowLeft,
   LogOut,
   FileText,
+  Plug,
 } from 'lucide-react'
 import clsx from 'clsx'
 import { useAuth } from '../contexts/AuthContext.jsx'
@@ -18,6 +19,7 @@ const NAV = [
   { to: '/admin/items', label: 'Varedatabase', icon: Boxes },
   { to: '/admin/users', label: 'Team', icon: Users2 },
   { to: '/admin/settings', label: 'Indstillinger', icon: SettingsIcon },
+  { to: '/admin/integrations', label: 'Integrationer', icon: Plug },
 ]
 
 export default function AdminLayout() {

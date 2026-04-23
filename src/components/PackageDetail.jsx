@@ -1,10 +1,11 @@
 import { useState } from 'react'
-import { X, Plus, Trash2, Clock, StickyNote, CalendarClock } from 'lucide-react'
+import { X, Plus, Trash2, Clock, StickyNote, CalendarClock, Camera } from 'lucide-react'
 import clsx from 'clsx'
 import { useJobs } from '../contexts/JobsContext.jsx'
 import { formatDKK, packageTotal, packageLaborTotal, packageItemsTotal } from '../lib/pricing.js'
 import LucideByName from './LucideByName.jsx'
 import ItemSearch from './ItemSearch.jsx'
+import PhotoGallery from './PhotoGallery.jsx'
 
 const MODELS = [
   { value: 'fixed', label: 'Fast pris' },
@@ -19,6 +20,8 @@ export default function PackageDetail({ jobId, roomId, pkg, onClose }) {
     addItemToPackage,
     updatePackageItem,
     removePackageItem,
+    addPackagePhoto,
+    removePackagePhoto,
   } = useJobs()
   const [showItemSearch, setShowItemSearch] = useState(false)
 
@@ -217,6 +220,18 @@ export default function PackageDetail({ jobId, roomId, pkg, onClose }) {
               placeholder="Fx: 2-3 dages arbejde"
               value={pkg.timeline_text || ''}
               onChange={(e) => setField({ timeline_text: e.target.value })}
+            />
+          </section>
+
+          <section>
+            <div className="label flex items-center gap-1.5">
+              <Camera className="w-4 h-4 text-slate-500" strokeWidth={2} />
+              Foto-dokumentation
+            </div>
+            <PhotoGallery
+              photos={pkg.photos || []}
+              onAdd={(photo) => addPackagePhoto(jobId, roomId, pkg.id, photo)}
+              onRemove={(photoId) => removePackagePhoto(jobId, roomId, pkg.id, photoId)}
             />
           </section>
 

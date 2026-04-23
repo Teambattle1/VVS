@@ -12,6 +12,7 @@ import {
 } from 'lucide-react'
 import clsx from 'clsx'
 import { useJobs } from '../contexts/JobsContext.jsx'
+import { useToast } from '../contexts/ToastContext.jsx'
 
 const VAT_OPTIONS = [
   {
@@ -34,6 +35,7 @@ const VAT_OPTIONS = [
 export default function NewJob() {
   const navigate = useNavigate()
   const { addJob } = useJobs()
+  const toast = useToast()
 
   const [title, setTitle] = useState('')
   const [customerName, setCustomerName] = useState('')
@@ -62,7 +64,8 @@ export default function NewJob() {
       vatHandling,
     })
     setSubmitting(false)
-    navigate('/', { state: { flash: `Oprettet ${job.job_number}` }, replace: true })
+    toast.success(`${job.job_number} er oprettet`)
+    navigate(`/jobs/${job.id}`, { replace: true })
   }
 
   function handleCustomerTypeChange(next) {

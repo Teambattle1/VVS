@@ -251,8 +251,13 @@ export function JobsProvider({ children }) {
     })
   }
 
-  function signOffer(jobId, { customerName, customerEmail }) {
-    updateJob(jobId, { status: 'approved', signed_at: new Date().toISOString(), signed_by: customerName })
+  function signOffer(jobId, { customerName, customerEmail, signature = null }) {
+    updateJob(jobId, {
+      status: 'approved',
+      signed_at: new Date().toISOString(),
+      signed_by: customerName,
+      signature,
+    })
     logAction(jobId, {
       action_type: 'sign_offer',
       actor_type: 'customer',
@@ -477,6 +482,54 @@ export function JobsProvider({ children }) {
     )
   }
 
+  function addPackagePhoto(jobId, roomId, pkgId, photo) {
+    setJobs((prev) =>
+      prev.map((j) =>
+        j.id === jobId
+          ? {
+              ...j,
+              rooms: j.rooms.map((r) =>
+                r.id === roomId
+                  ? {
+                      ...r,
+                      packages: r.packages.map((p) =>
+                        p.id === pkgId
+                          ? { ...p, photos: [...(p.photos || []), photo] }
+                          : p
+                      ),
+                    }
+                  : r
+              ),
+            }
+          : j
+      )
+    )
+  }
+
+  function removePackagePhoto(jobId, roomId, pkgId, photoId) {
+    setJobs((prev) =>
+      prev.map((j) =>
+        j.id === jobId
+          ? {
+              ...j,
+              rooms: j.rooms.map((r) =>
+                r.id === roomId
+                  ? {
+                      ...r,
+                      packages: r.packages.map((p) =>
+                        p.id === pkgId
+                          ? { ...p, photos: (p.photos || []).filter((ph) => ph.id !== photoId) }
+                          : p
+                      ),
+                    }
+                  : r
+              ),
+            }
+          : j
+      )
+    )
+  }
+
   function deletePackage(jobId, roomId, pkgId) {
     setJobs((prev) =>
       prev.map((j) =>
@@ -690,6 +743,8 @@ export function JobsProvider({ children }) {
       addPackage,
       updatePackage,
       deletePackage,
+      addPackagePhoto,
+      removePackagePhoto,
       addItemToPackage,
       updatePackageItem,
       removePackageItem,

@@ -1,29 +1,31 @@
+import { lazy, Suspense } from 'react'
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { useAuth } from './contexts/AuthContext.jsx'
+import LoadingScreen from './components/LoadingScreen.jsx'
 import Login from './pages/Login.jsx'
 import Dashboard from './pages/Dashboard.jsx'
-import NewJob from './pages/NewJob.jsx'
-import JobDetail from './pages/JobDetail.jsx'
-import RoomEditor from './pages/RoomEditor.jsx'
-import CustomerPortal from './pages/CustomerPortal.jsx'
-import Onboarding from './pages/Onboarding.jsx'
-import AdminLayout from './components/AdminLayout.jsx'
-import AdminPackages from './pages/admin/Packages.jsx'
-import AdminItems from './pages/admin/Items.jsx'
-import AdminUsers from './pages/admin/Users.jsx'
-import AdminSettings from './pages/admin/Settings.jsx'
-import SuperAdminOrganizations from './pages/superadmin/Organizations.jsx'
+import NotFound from './components/NotFound.jsx'
+
+// Lazy-load tunge ruter (Konva + react-pdf)
+const NewJob           = lazy(() => import('./pages/NewJob.jsx'))
+const JobDetail        = lazy(() => import('./pages/JobDetail.jsx'))
+const RoomEditor       = lazy(() => import('./pages/RoomEditor.jsx'))
+const CustomerPortal   = lazy(() => import('./pages/CustomerPortal.jsx'))
+const Onboarding       = lazy(() => import('./pages/Onboarding.jsx'))
+const AdminLayout      = lazy(() => import('./components/AdminLayout.jsx'))
+const AdminPackages    = lazy(() => import('./pages/admin/Packages.jsx'))
+const AdminItems       = lazy(() => import('./pages/admin/Items.jsx'))
+const AdminUsers       = lazy(() => import('./pages/admin/Users.jsx'))
+const AdminSettings    = lazy(() => import('./pages/admin/Settings.jsx'))
+const AdminIntegrations = lazy(() => import('./pages/admin/Integrations.jsx'))
+const SuperAdminOrganizations = lazy(() => import('./pages/superadmin/Organizations.jsx'))
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth()
   const location = useLocation()
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-slate-500 text-sm">Indlæser…</div>
-      </div>
-    )
+    return <LoadingScreen />
   }
 
   if (!user) {
@@ -40,10 +42,14 @@ function PublicOnlyRoute({ children }) {
   return children
 }
 
+function Lazy({ children }) {
+  return <Suspense fallback={<LoadingScreen />}>{children}</Suspense>
+}
+
 export default function AppRoutes() {
   return (
     <Routes>
-      <Route path="/k/:token" element={<CustomerPortal />} />
+      <Route path="/k/:token" element={<Lazy><CustomerPortal /></Lazy>} />
 
       <Route
         path="/login"
@@ -53,6 +59,7 @@ export default function AppRoutes() {
           </PublicOnlyRoute>
         }
       />
+
       <Route
         path="/"
         element={
@@ -61,11 +68,12 @@ export default function AppRoutes() {
           </ProtectedRoute>
         }
       />
+
       <Route
         path="/jobs/new"
         element={
           <ProtectedRoute>
-            <NewJob />
+            <Lazy><NewJob /></Lazy>
           </ProtectedRoute>
         }
       />
@@ -73,7 +81,7 @@ export default function AppRoutes() {
         path="/jobs/:jobId"
         element={
           <ProtectedRoute>
-            <JobDetail />
+            <Lazy><JobDetail /></Lazy>
           </ProtectedRoute>
         }
       />
@@ -81,7 +89,7 @@ export default function AppRoutes() {
         path="/jobs/:jobId/rooms/:roomId"
         element={
           <ProtectedRoute>
-            <RoomEditor />
+            <Lazy><RoomEditor /></Lazy>
           </ProtectedRoute>
         }
       />
@@ -90,22 +98,23 @@ export default function AppRoutes() {
         path="/admin"
         element={
           <ProtectedRoute>
-            <AdminLayout />
+            <Lazy><AdminLayout /></Lazy>
           </ProtectedRoute>
         }
       >
         <Route index element={<Navigate to="/admin/packages" replace />} />
-        <Route path="packages" element={<AdminPackages />} />
-        <Route path="items" element={<AdminItems />} />
-        <Route path="users" element={<AdminUsers />} />
-        <Route path="settings" element={<AdminSettings />} />
+        <Route path="packages"     element={<Lazy><AdminPackages /></Lazy>} />
+        <Route path="items"        element={<Lazy><AdminItems /></Lazy>} />
+        <Route path="users"        element={<Lazy><AdminUsers /></Lazy>} />
+        <Route path="settings"     element={<Lazy><AdminSettings /></Lazy>} />
+        <Route path="integrations" element={<Lazy><AdminIntegrations /></Lazy>} />
       </Route>
 
       <Route
         path="/super"
         element={
           <ProtectedRoute>
-            <SuperAdminOrganizations />
+            <Lazy><SuperAdminOrganizations /></Lazy>
           </ProtectedRoute>
         }
       />
@@ -114,12 +123,12 @@ export default function AppRoutes() {
         path="/onboarding"
         element={
           <ProtectedRoute>
-            <Onboarding />
+            <Lazy><Onboarding /></Lazy>
           </ProtectedRoute>
         }
       />
 
-      <Route path="*" element={<Navigate to="/" replace />} />
+      <Route path="*" element={<NotFound />} />
     </Routes>
   )
 }
