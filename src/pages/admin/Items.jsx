@@ -1,16 +1,33 @@
 import { useMemo, useRef, useState } from 'react'
-import { Plus, Edit2, Trash2, Search, X, Check, Upload, Download } from 'lucide-react'
+import { Plus, Edit2, Trash2, Search, X, Check, Upload, Download, Sparkles, Trash } from 'lucide-react'
 import clsx from 'clsx'
 import { useJobs } from '../../contexts/JobsContext.jsx'
 import { ITEM_CATEGORIES, UNITS } from '../../lib/mockItems.js'
+import { DEMO_ITEMS, isDemoItem } from '../../lib/demoItems.js'
+import { useToast } from '../../contexts/ToastContext.jsx'
 import { formatDKK } from '../../lib/pricing.js'
 
 export default function AdminItems() {
   const { items, createItem, updateItem, deleteItem, importItemsCSV } = useJobs()
+  const toast = useToast()
   const [query, setQuery] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('all')
   const [editing, setEditing] = useState(null)
   const fileRef = useRef(null)
+
+  const demoItems = useMemo(() => items.filter(isDemoItem), [items])
+
+  function handleAddDemo() {
+    DEMO_ITEMS.forEach((it) => createItem(it))
+    toast.success(`${DEMO_ITEMS.length} demo-varer tilføjet`)
+  }
+
+  function handleRemoveAllDemo() {
+    if (!demoItems.length) return
+    if (!confirm(`Fjern ${demoItems.length} demo-varer?`)) return
+    demoItems.forEach((it) => deleteItem(it.id))
+    toast.success(`${demoItems.length} demo-varer fjernet`)
+  }
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -62,7 +79,9 @@ export default function AdminItems() {
         <div>
           <h1 className="text-xl font-bold text-slate-900">Varedatabase</h1>
           <p className="text-sm text-slate-500">
-            {items.length} varer · CSV-import/eksport tilgængelig.
+            {items.length} varer
+            {demoItems.length > 0 && <span className="text-amber-700 font-semibold"> · {demoItems.length} demo</span>}
+            {' '}· CSV-import/eksport tilgængelig.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -87,6 +106,46 @@ export default function AdminItems() {
           </button>
         </div>
       </header>
+
+      <div className="card p-4 flex flex-col md:flex-row md:items-center gap-3 bg-gradient-to-br from-amber-50 to-white border-amber-200">
+        <div className="flex items-start gap-3 flex-1">
+          <div className="w-10 h-10 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center flex-shrink-0">
+            <Sparkles className="w-5 h-5" strokeWidth={2} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="text-sm font-bold text-slate-900">Demo-varer</div>
+            <p className="text-xs text-slate-600">
+              Prøv varedatabasen med {DEMO_ITEMS.length} eksempel-varer. Alle markeres med{' '}
+              <span className="chip bg-amber-100 text-amber-800 text-[10px] font-bold">DEMO</span>
+              {' '}så de kan fjernes samlet igen.
+            </p>
+          </div>
+        </div>
+        <div className="flex gap-2 flex-shrink-0">
+          <button
+            type="button"
+            onClick={handleAddDemo}
+            className="btn-secondary border-amber-300 text-amber-800 hover:bg-amber-100"
+          >
+            <Plus className="w-4 h-4" strokeWidth={2.25} />
+            Tilføj demo-varer
+          </button>
+          <button
+            type="button"
+            onClick={handleRemoveAllDemo}
+            disabled={demoItems.length === 0}
+            className={clsx(
+              'btn-secondary',
+              demoItems.length === 0
+                ? 'opacity-40 cursor-not-allowed'
+                : 'border-rose-300 text-rose-700 hover:bg-rose-50'
+            )}
+          >
+            <Trash className="w-4 h-4" strokeWidth={2} />
+            Fjern alle demo
+          </button>
+        </div>
+      </div>
 
       <div className="flex flex-col md:flex-row gap-3">
         <div className="relative flex-1">
@@ -129,7 +188,12 @@ export default function AdminItems() {
                 className="px-4 py-3 grid grid-cols-[1fr_auto] md:grid-cols-[1fr_140px_140px_80px_120px_auto] items-center gap-3"
               >
                 <div className="min-w-0">
-                  <div className="text-sm font-semibold text-slate-900 truncate">{it.name}</div>
+                  <div className="text-sm font-semibold text-slate-900 truncate flex items-center gap-1.5">
+                    {isDemoItem(it) && (
+                      <span className="chip bg-amber-100 text-amber-800 text-[10px] font-bold flex-shrink-0">DEMO</span>
+                    )}
+                    {it.name}
+                  </div>
                   <div className="text-xs text-slate-500 md:hidden">
                     {it.sku ? `${it.sku} · ` : ''}{catLabel} · {formatDKK(it.sales_price)}
                   </div>
