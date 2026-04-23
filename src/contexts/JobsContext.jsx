@@ -319,7 +319,7 @@ export function JobsProvider({ children }) {
   // ============================================
   // ROOMS
   // ============================================
-  function addRoom(jobId, {
+  async function addRoom(jobId, {
     name,
     room_type,
     width_cm,
@@ -396,37 +396,37 @@ export function JobsProvider({ children }) {
     )
 
     if (hasSupabase && orgId) {
-      ;(async () => {
-        try {
-          const dbRoom = await repo.createRoom({
-            jobId,
+      try {
+        const dbRoom = await repo.createRoom({
+          jobId,
+          orgId,
+          name,
+          roomType: room_type,
+          widthCm: width_cm,
+          lengthCm: length_cm,
+          floorplanMode: floorplan_mode,
+        })
+        for (const pkg of packages) {
+          await repo.createRoomPackage({
+            roomId: dbRoom.id,
             orgId,
-            name,
-            roomType: room_type,
-            widthCm: width_cm,
-            lengthCm: length_cm,
-            floorplanMode: floorplan_mode,
+            templateId: pkg.template_id,
+            name: pkg.name,
+            lucideIcon: pkg.lucide_icon,
+            positionX: pkg.position_x,
+            positionY: pkg.position_y,
+            pricingModel: pkg.pricing_model,
+            fixedPrice: pkg.fixed_price,
+            hours: pkg.hours,
+            hourlyRate: pkg.hourly_rate,
           })
-          for (const pkg of packages) {
-            await repo.createRoomPackage({
-              roomId: dbRoom.id,
-              orgId,
-              templateId: pkg.template_id,
-              name: pkg.name,
-              lucideIcon: pkg.lucide_icon,
-              positionX: pkg.position_x,
-              positionY: pkg.position_y,
-              pricingModel: pkg.pricing_model,
-              fixedPrice: pkg.fixed_price,
-              hours: pkg.hours,
-              hourlyRate: pkg.hourly_rate,
-            })
-          }
-          await refresh()
-        } catch (err) {
-          reportDbError('Kunne ikke gemme rum', err)
         }
-      })()
+        await refresh()
+        return { ...room, id: dbRoom.id } // ægte UUID så navigation virker
+      } catch (err) {
+        reportDbError('Kunne ikke gemme rum', err)
+        return room // fallback til optimistic så UI ikke hænger
+      }
     }
     return room
   }
@@ -543,7 +543,7 @@ export function JobsProvider({ children }) {
   // ============================================
   // PACKAGES (på et rum)
   // ============================================
-  function addPackage(jobId, roomId, template, position) {
+  async function addPackage(jobId, roomId, template, position) {
     const pkg = {
       id: uid('pkg'),
       template_id: template.id,
@@ -574,8 +574,8 @@ export function JobsProvider({ children }) {
     )
 
     if (hasSupabase && orgId && !roomId.startsWith('room-')) {
-      repo
-        .createRoomPackage({
+      try {
+        const dbPkg = await repo.createRoomPackage({
           roomId,
           orgId,
           templateId: template.id,
@@ -588,11 +588,12 @@ export function JobsProvider({ children }) {
           hours: template.base_hours,
           hourlyRate: template.hourly_rate,
         })
-        .then(() => refresh())
-        .catch((err) =>
-          // eslint-disable-next-line no-console
-          console.warn('[JobsContext] addPackage DB-write fejlede:', err.message)
-        )
+        await refresh()
+        return { ...pkg, id: dbPkg.id }
+      } catch (err) {
+        reportDbError('Kunne ikke gemme pakke', err)
+        return pkg
+      }
     }
     return pkg
   }

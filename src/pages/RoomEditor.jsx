@@ -91,12 +91,12 @@ export default function RoomEditor() {
     setPlacing(true)
   }
 
-  function handlePlacedAt(position) {
+  async function handlePlacedAt(position) {
     if (!pendingTemplate) return
-    const pkg = addPackage(job.id, room.id, pendingTemplate, position)
+    const pkg = await addPackage(job.id, room.id, pendingTemplate, position)
     setPendingTemplate(null)
     setPlacing(false)
-    setSelectedPackageId(pkg.id)
+    if (pkg?.id) setSelectedPackageId(pkg.id)
   }
 
   function handleMove(pkgId, position) {
