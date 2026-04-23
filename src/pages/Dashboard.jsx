@@ -95,9 +95,9 @@ export default function Dashboard() {
 
       <main className="max-w-5xl mx-auto px-4 md:px-6 pt-4 md:pt-6 space-y-5">
         <section className="grid grid-cols-3 gap-3">
-          <StatCard label="Aktive sager" value={MOCK_JOBS.length.toString()} />
+          <StatCard label="Aktive sager" value={jobs.length.toString()} />
           <StatCard label="Pipeline" value={formatShortDKK(totalPipeline)} suffix="kr" />
-          <StatCard label="Sendt" value={MOCK_JOBS.filter((j) => j.status === 'sent').length.toString()} />
+          <StatCard label="Sendt" value={jobs.filter((j) => j.status === 'sent').length.toString()} />
         </section>
 
         <section className="flex flex-col sm:flex-row sm:items-center gap-3">
