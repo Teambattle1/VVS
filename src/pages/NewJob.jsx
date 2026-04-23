@@ -13,6 +13,8 @@ import {
 import clsx from 'clsx'
 import { useJobs } from '../contexts/JobsContext.jsx'
 import { useToast } from '../contexts/ToastContext.jsx'
+import AddressAutocomplete from '../components/AddressAutocomplete.jsx'
+import MapThumb from '../components/MapThumb.jsx'
 
 const VAT_OPTIONS = [
   {
@@ -40,6 +42,7 @@ export default function NewJob() {
   const [title, setTitle] = useState('')
   const [customerName, setCustomerName] = useState('')
   const [customerAddress, setCustomerAddress] = useState('')
+  const [customerCoords, setCustomerCoords] = useState({ lat: null, lon: null, zip: null, city: null })
   const [customerType, setCustomerType] = useState('private')
   const [vatHandling, setVatHandling] = useState('incl')
   const [submitting, setSubmitting] = useState(false)
@@ -60,6 +63,10 @@ export default function NewJob() {
         name: customerName,
         address: customerAddress,
         customer_type: customerType,
+        lat: customerCoords.lat,
+        lon: customerCoords.lon,
+        zip: customerCoords.zip,
+        city: customerCoords.city,
       },
       vatHandling,
     })
@@ -148,19 +155,34 @@ export default function NewJob() {
 
           <div>
             <label htmlFor="customerAddress" className="label">Adresse</label>
-            <div className="relative">
-              <MapPin
-                className="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400"
-                strokeWidth={2}
-              />
-              <input
-                id="customerAddress"
-                type="text"
-                className="input pl-11"
-                placeholder="Vej, nr, postnummer by"
-                value={customerAddress}
-                onChange={(e) => setCustomerAddress(e.target.value)}
-                required
+            <div className="flex gap-3 items-start">
+              <div className="flex-1 min-w-0">
+                <AddressAutocomplete
+                  id="customerAddress"
+                  value={customerAddress}
+                  onChange={(v) => {
+                    setCustomerAddress(v)
+                    // Hvis kunden skriver manuelt, nulstil koordinater
+                    if (customerCoords.lat) setCustomerCoords({ lat: null, lon: null, zip: null, city: null })
+                  }}
+                  onSelect={({ full_address, lat, lon, zip, city }) => {
+                    setCustomerAddress(full_address)
+                    setCustomerCoords({ lat, lon, zip, city })
+                  }}
+                  required
+                />
+                {customerCoords.lat && (
+                  <p className="text-[11px] text-emerald-600 mt-1 flex items-center gap-1">
+                    <Check className="w-3 h-3" strokeWidth={2.5} />
+                    Koordinater fundet
+                  </p>
+                )}
+              </div>
+              <MapThumb
+                lat={customerCoords.lat}
+                lon={customerCoords.lon}
+                address={customerAddress}
+                size="sm"
               />
             </div>
           </div>

@@ -26,6 +26,7 @@ import PriceSummary from '../components/PriceSummary.jsx'
 import VatToggle from '../components/VatToggle.jsx'
 import AddRoomDialog from '../components/AddRoomDialog.jsx'
 import ActivityFeed from '../components/ActivityFeed.jsx'
+import MapThumb from '../components/MapThumb.jsx'
 
 export default function JobDetail() {
   const { jobId } = useParams()
@@ -136,7 +137,7 @@ export default function JobDetail() {
       <main className="max-w-4xl mx-auto px-4 md:px-6 pt-5 space-y-5">
         <section className="card p-5">
           <div className="flex items-start justify-between gap-4 flex-wrap">
-            <div className="flex items-start gap-3">
+            <div className="flex items-start gap-3 flex-1 min-w-0">
               <div className="w-11 h-11 rounded-2xl bg-slate-100 text-slate-600 flex items-center justify-center flex-shrink-0">
                 {job.customer.customer_type === 'business' ? (
                   <Building2 className="w-5 h-5" strokeWidth={2} />
@@ -144,17 +145,22 @@ export default function JobDetail() {
                   <UserIcon className="w-5 h-5" strokeWidth={2} />
                 )}
               </div>
-              <div>
+              <div className="min-w-0">
                 <div className="text-xs uppercase tracking-wide text-slate-400 font-semibold">
                   {job.customer.customer_type === 'business' ? 'Erhvervskunde' : 'Privatkunde'}
                 </div>
-                <div className="text-base font-bold text-slate-900">{job.customer.name}</div>
+                <div className="text-base font-bold text-slate-900 truncate">{job.customer.name}</div>
                 <div className="text-sm text-slate-500 flex items-center gap-1 mt-0.5">
-                  <MapPin className="w-4 h-4 text-slate-400" strokeWidth={2} />
-                  {job.customer.address}
+                  <MapPin className="w-4 h-4 text-slate-400 flex-shrink-0" strokeWidth={2} />
+                  <span className="truncate">{job.customer.address}</span>
                 </div>
               </div>
             </div>
+            <MapThumb
+              lat={job.customer.lat}
+              lon={job.customer.lon}
+              address={job.customer.address}
+            />
             <PriceSummary excl={total} vatHandling={job.vat_handling} size="lg" label="Job i alt" />
           </div>
 
