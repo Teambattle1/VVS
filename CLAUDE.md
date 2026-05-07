@@ -8,7 +8,7 @@ White-label SaaS til danske VVS-virksomheder: multi-tenant webapp hvor montører
 
 **Domain:** `vvs.eventday.dk`
 **Ejer:** Thomas Sunke / TeamBattle Danmark
-**Repo:** `teambattle1/vvs-tilbud`
+**Repo:** `Teambattle1/VVS`
 
 ## Tech stack
 
