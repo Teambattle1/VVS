@@ -1,9 +1,18 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Stage, Layer, Rect, Line, Image as KonvaImage, Text as KonvaText, Group } from 'react-konva'
-import { Camera } from 'lucide-react'
+import { Camera, X, Palette } from 'lucide-react'
 import clsx from 'clsx'
 import { packageTotal, formatDKK } from '../lib/pricing.js'
 import LucideByName from './LucideByName.jsx'
+
+const NOTE_COLORS = [
+  '#FEF08A', // gul
+  '#FBCFE8', // pink
+  '#BAE6FD', // blå
+  '#BBF7D0', // grøn
+  '#FED7AA', // orange
+  '#E2E8F0', // grå
+]
 
 // ============================================
 // Hybrid floorplan-view:
@@ -30,10 +39,15 @@ export default function FloorplanCanvas({
   drawColor = '#0F172A',
   drawWidth = 3,
   selectedPackageId = null,
+  editingNoteId = null,
   onPlace,
   onSelectPackage,
   onMovePackage,
   onAddLine,
+  onMoveNote,
+  onUpdateNote,
+  onDeleteNote,
+  onEditNote,
   readOnly = false,
 }) {
   const wrapRef = useRef(null)
@@ -41,8 +55,10 @@ export default function FloorplanCanvas({
   const [bgImage, setBgImage] = useState(null)
   const [currentLine, setCurrentLine] = useState(null)
   const [draggingId, setDraggingId] = useState(null)
+  const [draggingNoteId, setDraggingNoteId] = useState(null)
   const isDrawingRef = useRef(false)
   const dragStartRef = useRef(null)
+  const noteDragRef = useRef(null)
 
   useEffect(() => {
     function measure() {
@@ -245,10 +261,55 @@ export default function FloorplanCanvas({
     dragStartRef.current = null
   }
 
+  // Note drag-handling — samme 5px threshold-mønster som pakker
+  function startNoteDrag(e, note) {
+    if (readOnly || drawing || placing) return
+    e.stopPropagation()
+    const target = e.currentTarget
+    target.setPointerCapture?.(e.pointerId)
+    noteDragRef.current = {
+      id: note.id,
+      startX: e.clientX,
+      startY: e.clientY,
+      moved: false,
+    }
+  }
+
+  function moveNoteDrag(e, note) {
+    const ref = noteDragRef.current
+    if (!ref || ref.id !== note.id || !wrapRef.current) return
+    const dx = e.clientX - ref.startX
+    const dy = e.clientY - ref.startY
+    if (!ref.moved) {
+      if (Math.hypot(dx, dy) < DRAG_THRESHOLD) return
+      ref.moved = true
+      setDraggingNoteId(note.id)
+    }
+    const rect = wrapRef.current.getBoundingClientRect()
+    const px = e.clientX - rect.left
+    const py = e.clientY - rect.top
+    const x = Math.max(0, Math.min(1, (px - padding) / innerW))
+    const y = Math.max(0, Math.min(1, (py - padding) / innerH))
+    onMoveNote?.(note.id, { x, y })
+  }
+
+  function endNoteDrag(e, note) {
+    const ref = noteDragRef.current
+    const target = e.currentTarget
+    target.releasePointerCapture?.(e.pointerId)
+    const wasMoved = !!ref?.moved
+    noteDragRef.current = null
+    setDraggingNoteId(null)
+    if (!wasMoved && ref?.id === note.id) {
+      // Klik (ikke drag) — åbn editor
+      onEditNote?.(note.id)
+    }
+  }
+
   const activeHint = drawing
     ? 'Tegn ved at holde nede og trække'
     : placing
-    ? 'Tryk på grundplanen for at placere pakken'
+    ? 'Tryk på grundplanen for at placere'
     : null
 
   return (
@@ -368,6 +429,178 @@ export default function FloorplanCanvas({
             onPointerCancel={(e) => endMarkerDrag(e, pkg)}
           />
         ))}
+
+        {(room.notes || []).map((note) => (
+          <NoteMarker
+            key={note.id}
+            note={note}
+            innerW={innerW}
+            innerH={innerH}
+            editing={editingNoteId === note.id}
+            dragging={draggingNoteId === note.id}
+            disabled={readOnly || drawing || placing}
+            onPointerDown={(e) => startNoteDrag(e, note)}
+            onPointerMove={(e) => moveNoteDrag(e, note)}
+            onPointerUp={(e) => endNoteDrag(e, note)}
+            onPointerCancel={(e) => endNoteDrag(e, note)}
+            onChangeText={(text) => onUpdateNote?.(note.id, { text })}
+            onChangeColor={(color) => onUpdateNote?.(note.id, { color })}
+            onCloseEdit={() => onEditNote?.(null)}
+            onDelete={() => onDeleteNote?.(note.id)}
+          />
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function NoteMarker({
+  note,
+  innerW,
+  innerH,
+  editing,
+  dragging,
+  disabled,
+  onPointerDown,
+  onPointerMove,
+  onPointerUp,
+  onPointerCancel,
+  onChangeText,
+  onChangeColor,
+  onCloseEdit,
+  onDelete,
+}) {
+  const [showColors, setShowColors] = useState(false)
+  const px = note.position_x * innerW
+  const py = note.position_y * innerH
+  const color = note.color || '#FEF08A'
+
+  return (
+    <div
+      className={clsx(
+        'absolute pointer-events-auto select-none transition-all',
+        dragging ? 'cursor-grabbing z-30' : editing ? 'z-40' : 'cursor-grab z-10'
+      )}
+      style={{
+        left: `${px}px`,
+        top: `${py}px`,
+        transform: 'translate(-50%, -50%)',
+        width: editing ? 200 : 144,
+      }}
+      onPointerDown={(e) => {
+        if (editing) return
+        e.stopPropagation()
+        onPointerDown?.(e)
+      }}
+      onPointerMove={editing ? undefined : onPointerMove}
+      onPointerUp={editing ? undefined : onPointerUp}
+      onPointerCancel={editing ? undefined : onPointerCancel}
+    >
+      <div
+        className="rounded-xl shadow-md border border-black/10 relative"
+        style={{ backgroundColor: color }}
+      >
+        {editing ? (
+          <>
+            <textarea
+              autoFocus
+              value={note.text || ''}
+              onChange={(e) => onChangeText?.(e.target.value)}
+              placeholder="Skriv note…"
+              className="w-full bg-transparent outline-none text-[12px] leading-snug px-2.5 py-2 pt-7 pr-7 resize-none"
+              style={{ color: '#000' }}
+              rows={4}
+              onKeyDown={(e) => {
+                if (e.key === 'Escape') {
+                  e.preventDefault()
+                  onCloseEdit?.()
+                }
+              }}
+            />
+            <div className="absolute top-1 left-1 right-1 flex items-center justify-between gap-1">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setShowColors((v) => !v)
+                }}
+                className="w-6 h-6 rounded-full flex items-center justify-center shadow-sm"
+                style={{ backgroundColor: '#fff', color: '#000', border: '1px solid #334155' }}
+                aria-label="Skift farve"
+                title="Skift farve"
+              >
+                <Palette className="w-3.5 h-3.5" strokeWidth={2.25} />
+              </button>
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onCloseEdit?.()
+                  }}
+                  className="text-[10px] font-bold px-2 py-1 rounded-md shadow-sm"
+                  style={{ backgroundColor: '#fff', color: '#000', border: '1px solid #334155' }}
+                  title="Færdig"
+                >
+                  OK
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    if (confirm('Slet denne note?')) onDelete?.()
+                  }}
+                  className="w-6 h-6 rounded-full hover:brightness-110 flex items-center justify-center shadow-sm"
+                  style={{ backgroundColor: '#F43F5E', color: '#fff', border: '1px solid #881337' }}
+                  aria-label="Slet note"
+                  title="Slet note"
+                >
+                  <X className="w-3.5 h-3.5" strokeWidth={2.5} />
+                </button>
+              </div>
+            </div>
+
+            {showColors && (
+              <div
+                className="absolute -bottom-9 left-0 right-0 flex items-center justify-center gap-1 rounded-xl shadow-lg px-2 py-1.5"
+                style={{ backgroundColor: '#fff', border: '1px solid #e2e8f0' }}
+              >
+                {NOTE_COLORS.map((c) => {
+                  const active = c.toLowerCase() === color.toLowerCase()
+                  return (
+                    <button
+                      key={c}
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onChangeColor?.(c)
+                        setShowColors(false)
+                      }}
+                      className="w-5 h-5 rounded-full transition-transform hover:scale-110"
+                      style={{
+                        backgroundColor: c,
+                        border: active ? '2px solid #0F172A' : '2px solid #fff',
+                        transform: active ? 'scale(1.1)' : undefined,
+                      }}
+                      aria-label={`Note-farve ${c}`}
+                    />
+                  )
+                })}
+              </div>
+            )}
+          </>
+        ) : (
+          <div
+            className="px-2.5 py-2 text-[12px] leading-snug break-words whitespace-pre-wrap min-h-[40px]"
+            style={{ color: '#000' }}
+          >
+            {note.text?.trim() ? (
+              note.text
+            ) : (
+              <span className="italic" style={{ color: '#475569' }}>Tom note · klik for at redigere</span>
+            )}
+          </div>
+        )}
       </div>
     </div>
   )

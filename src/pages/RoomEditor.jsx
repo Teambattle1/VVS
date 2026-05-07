@@ -13,6 +13,7 @@ import {
   ImagePlus,
   BookmarkPlus,
   Check,
+  StickyNote,
 } from 'lucide-react'
 import clsx from 'clsx'
 import { useJobs } from '../contexts/JobsContext.jsx'
@@ -43,6 +44,9 @@ export default function RoomEditor() {
     addDrawingLine,
     clearDrawing,
     undoDrawing,
+    addNote,
+    updateNote,
+    deleteNote,
     saveRoomAsTemplate,
     roomTemplates,
     applyRoomTemplate,
@@ -50,11 +54,13 @@ export default function RoomEditor() {
   } = useJobs()
 
   const [placing, setPlacing] = useState(false)
+  const [placingNote, setPlacingNote] = useState(false)
   const [drawColor, setDrawColor] = useState('#0F172A')
   const [drawWidth, setDrawWidth] = useState(3)
   const [showPicker, setShowPicker] = useState(false)
   const [selectedPackageId, setSelectedPackageId] = useState(null)
   const [pendingTemplate, setPendingTemplate] = useState(null)
+  const [editingNoteId, setEditingNoteId] = useState(null)
   const fileInputRef = useRef(null)
 
   const DRAW_COLORS = ['#0F172A', '#E11D48', '#0EA5E9', '#059669', '#F59E0B', '#7C3AED', '#64748B', '#FFFFFF']
@@ -88,7 +94,14 @@ export default function RoomEditor() {
   const drawing = isFreehand && !placing
 
   function startPlacing() {
+    setPlacingNote(false)
     setShowPicker(true)
+  }
+
+  function startPlacingNote() {
+    setPlacing(false)
+    setPendingTemplate(null)
+    setPlacingNote(true)
   }
 
   function handleTemplatePicked(template) {
@@ -98,6 +111,12 @@ export default function RoomEditor() {
   }
 
   async function handlePlacedAt(position) {
+    if (placingNote) {
+      const note = addNote(job.id, room.id, position)
+      setPlacingNote(false)
+      if (note?.id) setEditingNoteId(note.id)
+      return
+    }
     if (!pendingTemplate) return
     const pkg = await addPackage(job.id, room.id, pendingTemplate, position)
     setPendingTemplate(null)
@@ -206,7 +225,7 @@ export default function RoomEditor() {
                     type="button"
                     onClick={() => handleModeChange(m.value)}
                     className={clsx(
-                      'flex items-center gap-1.5 rounded-2xl px-3 py-2 text-xs font-semibold whitespace-nowrap border-2 transition-colors',
+                      'flex items-center gap-1.5 rounded-2xl px-3 py-2 text-xs font-semibold uppercase tracking-wide whitespace-nowrap border-2 transition-colors',
                       active
                         ? 'border-sky-500 bg-sky-50 text-sky-700'
                         : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
@@ -244,14 +263,30 @@ export default function RoomEditor() {
                 <span className="text-slate-500 text-xs">cm</span>
               </div>
 
-              <button
-                type="button"
-                onClick={startPlacing}
-                className="btn-primary"
-              >
-                <Plus className="w-5 h-5 text-white" strokeWidth={2.25} />
-                Placer pakke
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={startPlacingNote}
+                  className={clsx(
+                    'inline-flex items-center gap-1.5 rounded-2xl px-3 py-2 text-sm font-semibold uppercase tracking-wide border-2 transition-colors',
+                    placingNote
+                      ? 'border-amber-400 bg-amber-100 text-amber-900'
+                      : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'
+                  )}
+                  title="Tilføj note på grundplanen"
+                >
+                  <StickyNote className="w-4 h-4" strokeWidth={2} />
+                  Tilføj note
+                </button>
+                <button
+                  type="button"
+                  onClick={startPlacing}
+                  className="btn-primary"
+                >
+                  <Plus className="w-5 h-5 text-white" strokeWidth={2.25} />
+                  Placer pakke
+                </button>
+              </div>
             </div>
 
             {isFreehand && (
@@ -500,17 +535,25 @@ export default function RoomEditor() {
 
           <FloorplanCanvas
             room={room}
-            placing={placing}
+            placing={placing || placingNote}
             drawing={drawing}
             drawColor={drawColor}
             drawWidth={drawWidth}
             selectedPackageId={selectedPackageId}
+            editingNoteId={editingNoteId}
             onPlace={handlePlacedAt}
             onSelectPackage={setSelectedPackageId}
             onMovePackage={handleMove}
             onAddLine={(points) =>
               addDrawingLine(job.id, room.id, points, { color: drawColor, width: drawWidth })
             }
+            onMoveNote={(id, pos) => updateNote(job.id, room.id, id, { position_x: pos.x, position_y: pos.y })}
+            onUpdateNote={(id, patch) => updateNote(job.id, room.id, id, patch)}
+            onDeleteNote={(id) => {
+              deleteNote(job.id, room.id, id)
+              if (editingNoteId === id) setEditingNoteId(null)
+            }}
+            onEditNote={setEditingNoteId}
           />
 
           {placing && (
@@ -523,6 +566,19 @@ export default function RoomEditor() {
                   setPendingTemplate(null)
                 }}
                 className="text-sky-700 font-semibold hover:underline"
+              >
+                Annuller
+              </button>
+            </div>
+          )}
+
+          {placingNote && (
+            <div className="flex items-center justify-between bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3 text-sm text-amber-900">
+              <span>Tryk på grundplanen for at placere en note.</span>
+              <button
+                type="button"
+                onClick={() => setPlacingNote(false)}
+                className="text-amber-800 font-semibold hover:underline"
               >
                 Annuller
               </button>

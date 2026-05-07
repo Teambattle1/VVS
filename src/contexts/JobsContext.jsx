@@ -577,6 +577,73 @@ export function JobsProvider({ children }) {
   }
 
   // ============================================
+  // NOTES (placerede tekst-noter på grundplanen)
+  // ============================================
+  function addNote(jobId, roomId, position, opts = {}) {
+    const note = {
+      id: uid('note'),
+      text: opts.text || '',
+      color: opts.color || '#FEF08A',
+      position_x: position?.x ?? 0.5,
+      position_y: position?.y ?? 0.5,
+    }
+    setJobs((prev) =>
+      prev.map((j) =>
+        j.id === jobId
+          ? {
+              ...j,
+              rooms: j.rooms.map((r) =>
+                r.id === roomId
+                  ? { ...r, notes: [...(r.notes || []), note] }
+                  : r
+              ),
+            }
+          : j
+      )
+    )
+    return note
+  }
+
+  function updateNote(jobId, roomId, noteId, patch) {
+    setJobs((prev) =>
+      prev.map((j) =>
+        j.id === jobId
+          ? {
+              ...j,
+              rooms: j.rooms.map((r) =>
+                r.id === roomId
+                  ? {
+                      ...r,
+                      notes: (r.notes || []).map((n) =>
+                        n.id === noteId ? { ...n, ...patch } : n
+                      ),
+                    }
+                  : r
+              ),
+            }
+          : j
+      )
+    )
+  }
+
+  function deleteNote(jobId, roomId, noteId) {
+    setJobs((prev) =>
+      prev.map((j) =>
+        j.id === jobId
+          ? {
+              ...j,
+              rooms: j.rooms.map((r) =>
+                r.id === roomId
+                  ? { ...r, notes: (r.notes || []).filter((n) => n.id !== noteId) }
+                  : r
+              ),
+            }
+          : j
+      )
+    )
+  }
+
+  // ============================================
   // PACKAGES (på et rum)
   // ============================================
   async function addPackage(jobId, roomId, template, position) {
@@ -1151,6 +1218,9 @@ export function JobsProvider({ children }) {
       addDrawingLine,
       clearDrawing,
       undoDrawing,
+      addNote,
+      updateNote,
+      deleteNote,
       addPackage,
       updatePackage,
       deletePackage,
