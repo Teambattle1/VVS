@@ -20,25 +20,54 @@ async function tryDemoTeamLogin(email, password) {
   const e = email.trim().toLowerCase()
   // 1. DB-laesning (kraever migration 20260424120000_team_persist + 20260424130000_login_view_with_org)
   if (hasSupabase) {
+    // Forsøg først wide-select (kraever migration 20260424130000+).
+    // Falder tilbage til narrow-select hvis kolonnerne mangler.
+    const wideCols = 'id, organization_id, name, role, email, demo_password, org_name, primary_color, accent_color, logo_url, org_email, org_phone, org_address'
+    const narrowCols = 'id, organization_id, name, role, email, demo_password'
+    let data = null
     try {
-      // Brug minimal-select saa det virker selv hvis migrationen
-      // 20260424130000_login_view_with_org ikke er anvendt paa Supabase'en.
-      const { data } = await supabase
+      const r = await supabase
         .from('vvs_login_candidates')
-        .select('id, organization_id, name, role, email, demo_password')
+        .select(wideCols)
         .ilike('email', e)
         .limit(1)
         .maybeSingle()
-      if (data && (data.demo_password || '1234') === password) {
-        return {
-          id: data.id,
-          email: data.email,
-          name: data.name,
-          role: data.role || 'montor',
-          organization_id: data.organization_id,
-        }
+      data = r.data
+    } catch { /* prøv narrow */ }
+    if (!data) {
+      try {
+        const r = await supabase
+          .from('vvs_login_candidates')
+          .select(narrowCols)
+          .ilike('email', e)
+          .limit(1)
+          .maybeSingle()
+        data = r.data
+      } catch { /* falder tilbage til INITIAL_TEAM */ }
+    }
+    if (data && (data.demo_password || '1234') === password) {
+      return {
+        id: data.id,
+        email: data.email,
+        name: data.name,
+        role: data.role || 'montor',
+        organization_id: data.organization_id,
+        // Hvis wide-select returnerede org-data, pak organization-objektet
+        // så OrgContext slipper for at query vvs_organizations selv
+        organization: data.organization_id && data.org_name
+          ? {
+              id: data.organization_id,
+              name: data.org_name,
+              primary_color: data.primary_color,
+              accent_color: data.accent_color,
+              logo_url: data.logo_url,
+              contact_email: data.org_email,
+              contact_phone: data.org_phone,
+              address: data.org_address,
+            }
+          : null,
       }
-    } catch { /* falder tilbage til INITIAL_TEAM */ }
+    }
   }
   // 2. Fallback: INITIAL_TEAM (hvis DB ikke svarer eller migration ikke er koert)
   const match = INITIAL_TEAM.find((u) => u.email?.toLowerCase() === e)
