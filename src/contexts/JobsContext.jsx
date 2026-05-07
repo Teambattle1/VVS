@@ -103,9 +103,16 @@ export function JobsProvider({ children }) {
   const [dbUserId, setDbUserId] = useState(null)
   const [roomTemplates, setRoomTemplates] = useState([])
 
-  // Synk orgId med den aktive org fra OrgContext (saa super-admin kan skifte)
+  // Synk orgId med den aktive org. Sæt KUN hvis det er et rigtigt UUID —
+  // mock-org (id 'org-mock-1') skal ikke ramme Supabase, ellers fejler alle
+  // DB-writes med 'invalid input syntax for type uuid'.
   useEffect(() => {
-    if (org?.id) setOrgId(org.id)
+    const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+    if (org?.id && UUID_RE.test(String(org.id))) {
+      setOrgId(org.id)
+    } else {
+      setOrgId(null)
+    }
   }, [org?.id])
   const [dbLoading, setDbLoading] = useState(false)
   const supabaseModeRef = useRef(hasSupabase)

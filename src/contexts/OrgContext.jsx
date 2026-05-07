@@ -45,6 +45,11 @@ export function OrgProvider({ children }) {
     INITIAL_TEAM.map((u) => ({ ...u, password: u.password || '1234' }))
   )
 
+  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+  function isRealOrgId(id) {
+    return !!id && UUID_RE.test(String(id))
+  }
+
   function reportDbError(where, err) {
     // eslint-disable-next-line no-console
     console.warn(`[OrgContext] ${where}:`, err)
@@ -165,7 +170,7 @@ export function OrgProvider({ children }) {
     const currentId = org?.id
     setOrg((prev) => (prev ? { ...prev, ...patch, updated_at: new Date().toISOString() } : prev))
 
-    if (hasSupabase && currentId && !String(currentId).startsWith('org-mock')) {
+    if (hasSupabase && isRealOrgId(currentId)) {
       try {
         const { error } = await supabase
           .from('vvs_organizations')
@@ -188,7 +193,7 @@ export function OrgProvider({ children }) {
       active: active !== false,
       password: (password && password.trim()) || '1234',
     }
-    if (hasSupabase && org?.id) {
+    if (hasSupabase && isRealOrgId(org?.id)) {
       try {
         const created = await teamRepo.createTeamMember({ orgId: org.id, ...input })
         setTeam((prev) => [created, ...prev])
@@ -205,7 +210,7 @@ export function OrgProvider({ children }) {
 
   async function updateTeamMember(userId, patch) {
     setTeam((prev) => prev.map((u) => (u.id === userId ? { ...u, ...patch } : u)))
-    if (hasSupabase && org?.id && !String(userId).startsWith('u-')) {
+    if (hasSupabase && isRealOrgId(org?.id) && !String(userId).startsWith('u-')) {
       try {
         const updated = await teamRepo.updateTeamMemberDb(userId, patch)
         setTeam((prev) => prev.map((u) => (u.id === userId ? updated : u)))
