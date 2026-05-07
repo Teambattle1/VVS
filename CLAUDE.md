@@ -4,7 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Projekt
 
-White-label SaaS til danske VVS-virksomheder: multi-tenant webapp hvor montører opretter jobs, tegner grundplan, placerer pakker (toilet, bad, håndvask m.m.), beregner pris, og deler med kunde via unikt link med live updates. Kunden kan se tilbud, godkende, kommentere og tilvælge/fravælge items - alt live synkroniseret tilbage til montøren.
+**Single-tenant webapp** til ÉT specifikt dansk VVS-firma. Montører opretter jobs, tegner grundplan, placerer pakker (toilet, bad, håndvask m.m.), beregner pris, og deler med kunde via unikt link med live updates. Kunden kan se tilbud, godkende, kommentere og tilvælge/fravælge items - alt live synkroniseret tilbage til montøren.
+
+**Vigtigt:** Appen er IKKE et multi-tenant SaaS. Der er ét firma — der findes ingen org-switcher, ingen super-admin, ingen mulighed for at oprette flere firmaer. Der må aldrig genintroduceres multi-tenant UI eller flows.
 
 **Domain:** `vvs.eventday.dk`
 **Ejer:** Thomas Sunke / TeamBattle Danmark
@@ -62,16 +64,19 @@ De faktiske DB-implementeringer (insert/update/delete + JOIN-fetches) ligger i [
 
 Konsekvens: Når der kodes auth-relateret, husk at `user.organization_id` og `user.organization` kan komme direkte fra demo-login og IKKE fra `vvs_users`-opslag.
 
-### OrgContext og super-admin
-- `homeOrgId` er brugerens egen org. `org` er den **aktive** org (kan være en anden hvis super-admin har skiftet via `OrgSwitcher`).
-- Super-admins gemmer aktivt valg i localStorage som `vvs.activeOrgId` map'et på `userId`.
+### OrgContext (single-tenant)
+- `OrgContext` indlæser det FØRSTE firma fra `vvs_organizations` ved login. Hvis tabellen er tom, oprettes automatisk et default-firma så Settings kan bruges til at udfylde resten.
+- Demo-login medbringer `user.organization` direkte fra `tryDemoTeamLogin` — den bruges som genvej (RLS blokerer ofte direkte tabel-opslag).
+- Hvis Supabase ikke kører, falder `OrgContext` tilbage til `MOCK_ORG` (første entry i `INITIAL_ORGS`).
 - Org-tema (`primary_color`, `accent_color`) injiceres som CSS custom properties (`--brand-primary`, `--brand-accent`) på `document.documentElement` — derfor bruger `tailwind.config.js` `var(--brand-primary, #0EA5E9)` for `brand`-farven.
+- Eksponerer kun `org`, `setOrg`, `updateOrg`, `team`, `addTeamMember`, `updateTeamMember`, `removeTeamMember`. Ingen `homeOrgId`, `allOrgs`, `switchActiveOrg`, `addOrg`, `isSuperAdmin` — multi-tenant koncepter er bevidst fjernet.
 
 ### Routing (src/routes.jsx)
 - Tunge ruter (Konva, react-pdf) lazy-loadet
 - Public: `/k/:token` (kunde-portal, kun share_token), `/kunde/login`, `/kunde`
-- Auth-protected: `/`, `/jobs/...`, `/admin/*`, `/super`, `/onboarding`
+- Auth-protected: `/`, `/jobs/...`, `/admin/*`
 - `ProtectedRoute` redirect'er til `/login` hvis ingen user; `PublicOnlyRoute` redirect'er auth'ede brugere væk fra `/login`
+- **Fjernede ruter:** `/super` (SuperAdmin Organizations) og `/onboarding` (org-create wizard) — single-tenant har ikke brug for dem.
 
 ## Coding preferences
 
@@ -84,16 +89,15 @@ Konsekvens: Når der kodes auth-relateret, husk at `user.organization_id` og `us
 - Brug `clsx` eller `tailwind-merge` til conditional classes
 - Alle DB-queries skal respektere `organization_id` (multi-tenant isolation)
 
-## Multi-tenant regler (KRITISK)
+## Single-tenant regler (KRITISK)
 
-Dette er en white-label SaaS. Hver VVS-virksomhed er en "organization" med fuldt isoleret data.
+Appen er bygget til ÉT firma — der findes ingen multi-tenant UI eller flows.
 
-- Hver tabel (undtagen globale pakke-skabeloner) har `organization_id` kolonne
-- `OrgContext` wrapper alle authed routes og eksponerer nuværende org
-- Alle Supabase-queries skal filtrere på `organization_id`
-- RLS policies håndhæver isolation på DB-niveau (safety net)
-- Super-admin (Thomas) bruger service_role nøgle, kun i edge functions
-- Globale pakke-skabeloner har `organization_id = NULL` - kan kopieres til org's egen liste
+- `vvs_organizations`-tabellen indeholder typisk ét firma. `OrgContext` bruger den første row eller opretter en default hvis tom.
+- `organization_id`-kolonner findes stadig på `vvs_*`-tabellerne (DB-artefakt fra tidligere multi-tenant arkitektur). Sat til den ene org's id.
+- `RLS`-policies bibeholdes som DB-niveau isolation (safety net), men de blokerer ikke noget UI-flow i practice.
+- Globale pakke-skabeloner har `organization_id = NULL` - kan kopieres til org's egen liste.
+- **Genintroducér ALDRIG** org-switcher, super-admin, "opret nyt firma"-flows eller multi-org listing UI — appen er specifikt lavet til ét firma og må aldrig breddes ud til andre.
 
 ## Moms-håndtering
 

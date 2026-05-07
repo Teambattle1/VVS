@@ -120,17 +120,6 @@ export function notifyInviteTeamMember({ email, name, orgName, acceptUrl }) {
   return sendEmail({ to: email, subject, html })
 }
 
-export function notifyNewOrgWelcome({ org, adminEmail, onboardingUrl }) {
-  const subject = `Velkommen til VVS FLOW — ${org.name}`
-  const html = `
-    <h2>Tak fordi du valgte VVS FLOW</h2>
-    <p>Din organisation <strong>${org.name}</strong> er oprettet.</p>
-    <p>Log ind og færdiggør opsætningen:</p>
-    <p><a href="${onboardingUrl}" style="display:inline-block;background:#0EA5E9;color:#fff;padding:12px 20px;border-radius:12px;text-decoration:none;font-weight:700">Kom i gang</a></p>
-  `
-  return sendEmail({ to: adminEmail, subject, html })
-}
-
 function actionToDanish(action) {
   switch (action) {
     case 'approve':     return 'godkendt'

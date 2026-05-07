@@ -13,7 +13,6 @@ import {
   ChevronRight,
   Building2,
   Settings as SettingsIcon,
-  ShieldCheck,
   Eye,
 } from 'lucide-react'
 import clsx from 'clsx'
@@ -26,7 +25,6 @@ import OrgLogo from '../components/OrgLogo.jsx'
 import MontorTour from '../components/MontorTour.jsx'
 import ThemeToggle from '../components/ThemeToggle.jsx'
 import VersionBadge from '../components/VersionBadge.jsx'
-import OrgSwitcher from '../components/OrgSwitcher.jsx'
 
 const STATUS_FILTERS = [
   { value: 'all', label: 'Alle', activeClass: 'bg-slate-900 text-white border-slate-900' },
@@ -70,8 +68,6 @@ export default function Dashboard() {
             <div className="text-xs text-slate-500 truncate">{org?.name || 'VVS Firma'}</div>
             <div className="text-sm font-bold text-slate-900 truncate">Mine sager</div>
           </div>
-          <OrgSwitcher className="mr-1 hidden sm:block" />
-
           <div className="hidden sm:flex items-center gap-2 px-2 py-1 rounded-2xl hover:bg-slate-50">
             <div
               className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
@@ -87,14 +83,6 @@ export default function Dashboard() {
           </div>
           <VersionBadge className="hidden sm:inline-flex" />
           <ThemeToggle />
-          <Link
-            to="/super"
-            className="hidden md:inline-flex items-center justify-center w-10 h-10 rounded-2xl text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
-            aria-label="Super-admin"
-            title="Super-admin"
-          >
-            <ShieldCheck className="w-5 h-5" strokeWidth={2} />
-          </Link>
           <Link
             to="/admin"
             className="inline-flex items-center justify-center w-10 h-10 rounded-2xl text-slate-500 hover:bg-slate-100"

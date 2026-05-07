@@ -81,7 +81,16 @@ export default function AdminSettings() {
     inputRefs.current.forEach((api) => api.flush?.())
   }
 
-  if (!org) return null
+  if (!org) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="text-center text-slate-500 dark:text-slate-400">
+          <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2" strokeWidth={2} />
+          Indlæser firma…
+        </div>
+      </div>
+    )
+  }
 
   async function handleField(field, value) {
     setStatus('saving')

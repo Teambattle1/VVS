@@ -11,7 +11,6 @@ const NewJob           = lazy(() => import('./pages/NewJob.jsx'))
 const JobDetail        = lazy(() => import('./pages/JobDetail.jsx'))
 const RoomEditor       = lazy(() => import('./pages/RoomEditor.jsx'))
 const CustomerPortal   = lazy(() => import('./pages/CustomerPortal.jsx'))
-const Onboarding       = lazy(() => import('./pages/Onboarding.jsx'))
 const AdminLayout      = lazy(() => import('./components/AdminLayout.jsx'))
 const AdminPackages    = lazy(() => import('./pages/admin/Packages.jsx'))
 const AdminItems       = lazy(() => import('./pages/admin/Items.jsx'))
@@ -19,7 +18,6 @@ const AdminUsers       = lazy(() => import('./pages/admin/Users.jsx'))
 const AdminSettings    = lazy(() => import('./pages/admin/Settings.jsx'))
 const AdminIntegrations = lazy(() => import('./pages/admin/Integrations.jsx'))
 const AdminActivity    = lazy(() => import('./pages/admin/Activity.jsx'))
-const SuperAdminOrganizations = lazy(() => import('./pages/superadmin/Organizations.jsx'))
 const CustomerLogin    = lazy(() => import('./pages/CustomerLogin.jsx'))
 const CustomerHistory  = lazy(() => import('./pages/CustomerHistory.jsx'))
 
@@ -115,24 +113,6 @@ export default function AppRoutes() {
         <Route path="settings"     element={<Lazy><AdminSettings /></Lazy>} />
         <Route path="integrations" element={<Lazy><AdminIntegrations /></Lazy>} />
       </Route>
-
-      <Route
-        path="/super"
-        element={
-          <ProtectedRoute>
-            <Lazy><SuperAdminOrganizations /></Lazy>
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/onboarding"
-        element={
-          <ProtectedRoute>
-            <Lazy><Onboarding /></Lazy>
-          </ProtectedRoute>
-        }
-      />
 
       <Route path="*" element={<NotFound />} />
     </Routes>
