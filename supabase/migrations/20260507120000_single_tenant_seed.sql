@@ -70,10 +70,20 @@ on conflict (slug) do update set
   updated_at = now();
 
 -- 5. Seed INITIAL_TEAM linket til firmaet (Anders som admin)
+-- Bruger delete+insert i stedet for ON CONFLICT da unique-index er
+-- partielt (kun where email is not null), hvilket ikke virker med ON CONFLICT.
 do $$
 declare org_uuid uuid;
 begin
   select id into org_uuid from public.vvs_organizations where slug = 'vvs-kbh' limit 1;
+
+  -- Slet kun de specifikke emails saa re-runs er idempotent
+  delete from public.vvs_users
+  where organization_id = org_uuid
+    and lower(email) in (
+      'a@a.dk','mikkel@vvs-kbh.dk','anne@vvs-kbh.dk',
+      'jesper@vvs-kbh.dk','louise@vvs-kbh.dk'
+    );
 
   insert into public.vvs_users
     (organization_id, name, email, phone, role, demo_password, active)
@@ -82,13 +92,7 @@ begin
     (org_uuid, 'Mikkel Montør',   'mikkel@vvs-kbh.dk',  '+45 20 11 22 33', 'org_admin', '1234', true),
     (org_uuid, 'Anne Rasmussen',  'anne@vvs-kbh.dk',    '+45 20 44 55 66', 'montor',    '1234', true),
     (org_uuid, 'Jesper Sørensen', 'jesper@vvs-kbh.dk',  '+45 20 77 88 99', 'montor',    '1234', true),
-    (org_uuid, 'Louise Kjær',     'louise@vvs-kbh.dk',  '+45 30 11 22 33', 'montor',    '1234', true)
-  on conflict (organization_id, lower(email)) do update set
-    name          = excluded.name,
-    phone         = excluded.phone,
-    role          = excluded.role,
-    demo_password = excluded.demo_password,
-    active        = excluded.active;
+    (org_uuid, 'Louise Kjær',     'louise@vvs-kbh.dk',  '+45 30 11 22 33', 'montor',    '1234', true);
 end $$;
 
 commit;
