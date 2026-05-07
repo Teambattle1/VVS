@@ -78,6 +78,7 @@ export function OrgProvider({ children }) {
   // Indlæs (eller opret) det ene firma
   useEffect(() => {
     let cancelled = false
+    const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
     async function loadOrCreateOrg() {
       if (!user) {
@@ -96,8 +97,14 @@ export function OrgProvider({ children }) {
         return
       }
 
+      // 2. Mock-brugere (id ikke UUID) springer DB over — undgår 400/401/RLS-stoej
+      if (!UUID_RE.test(String(user.id))) {
+        if (!cancelled) setOrg(MOCK_ORG)
+        return
+      }
+
       try {
-        // 2. Hent første firma fra DB
+        // 3. Hent første firma fra DB
         const { data: existing, error } = await supabase
           .from('vvs_organizations')
           .select('*')
@@ -111,7 +118,8 @@ export function OrgProvider({ children }) {
           return
         }
 
-        // 3. Tomt: opret default-firma så Settings kan bruges
+        // 4. Tomt: forsøg at oprette default-firma. Fejler hvis RLS blokerer
+        // anon-insert — så falder vi tilbage til MOCK_ORG.
         const { data: created, error: createError } = await supabase
           .from('vvs_organizations')
           .insert(DEFAULT_ORG_PAYLOAD)
@@ -124,8 +132,7 @@ export function OrgProvider({ children }) {
         }
       } catch (err) {
         // eslint-disable-next-line no-console
-        console.warn('[OrgContext] kunne ikke loade/oprette org:', err.message)
-        // Fallback til mock-org så appen ikke er låst
+        console.warn('[OrgContext] kunne ikke loade/oprette org — bruger MOCK_ORG:', err.message)
         if (!cancelled) setOrg(MOCK_ORG)
       }
     }

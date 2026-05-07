@@ -128,7 +128,9 @@ export function JobsProvider({ children }) {
   // Supabase: load vvs_users profile for at finde org, så data kan hentes
   // ============================================
   useEffect(() => {
-    if (!hasSupabase || !user) {
+    const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+    if (!hasSupabase || !user || !UUID_RE.test(String(user.id))) {
+      // Mock/demo-brugere har ikke UUID — spring DB-lookup over for at undgå 400-stoej
       setDbUserId(null)
       return
     }
