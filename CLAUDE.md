@@ -1,4 +1,6 @@
-# VVS FLOW - Claude Code instruktioner
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Projekt
 
@@ -18,6 +20,58 @@ White-label SaaS til danske VVS-virksomheder: multi-tenant webapp hvor montører
 - **react-router-dom** - routing
 - **@react-pdf/renderer** - PDF-eksport af tilbud
 - **Netlify** - deploy target
+
+## Kommandoer
+
+```
+npm install              # install deps
+npm run dev              # vite dev server på :5173 (åbner browser pga server.open i vite.config.js)
+npm run build            # vite build → dist/ (det Netlify deployer)
+npm run preview          # serv produktions-build lokalt
+```
+
+Der er **ingen test- eller lint-scripts** i package.json. Netlify kører selv `npm run build` (se `netlify.toml`), men kør det lokalt før push for at fange TS/import-fejl tidligt — en fejlet deploy støjer i loggen.
+
+**Netlify-gotcha:** `netlify.toml` returnerer bevidst 404 på ukendte `/assets/*` i stedet for SPA-fallback. Hvis en hashed asset mangler efter deploy, ses det som "JS module script fejler" — ikke en hvid side med React-routing.
+
+## Arkitektur (high-level)
+
+### Provider-chain (src/App.jsx)
+Hele appen wrappes i denne rækkefølge — vigtigt at bevare når nye providers tilføjes, fordi `JobsContext` læser `useAuth()` og `useOrg()`:
+
+```
+ErrorBoundary > ThemeProvider > ToastProvider > AuthProvider
+  > CustomerAuthProvider > OrgProvider > JobsProvider > AppRoutes
+```
+
+`SplashScreen` overlejrer ved første load; `WhatsNewGate` viser changelog-dialog efter splash.
+
+### Dual-mode: mock vs Supabase (KRITISK at forstå)
+Alle context-providers og repo-funktioner detekterer `hasSupabase` (eksporteret fra `src/lib/supabase.js`). Hvis env-vars mangler eller er ugyldige, falder hele appen tilbage til mock-data fra `src/lib/mock*.js` med localStorage-persistens.
+
+**ID-præfikser signalerer mock vs DB:**
+- Mock-IDs har præfiks: `job-`, `room-`, `pkg-`, `pi-`, `i-`, `u-`, `org-mock`, `rtpl-`, `t-`
+- DB-IDs er rigtige UUIDs (regex `^[0-9a-f]{8}-[0-9a-f]{4}-...$`)
+
+Repo-funktioner i `JobsContext` følger mønsteret: optimistisk lokal mutation → hvis `hasSupabase && orgId && !id.startsWith('mock-prefix')` så persistér til DB → ved success refetch via `refresh()`. **Bryd ikke dette mønster** — det holder UI'et responsivt og lader appen virke uden Supabase under udvikling.
+
+De faktiske DB-implementeringer (insert/update/delete + JOIN-fetches) ligger i [src/lib/jobsRepo.js](src/lib/jobsRepo.js). `JobsContext` orkestrerer; `jobsRepo` rører Supabase.
+
+### Auth: to login-stier
+`AuthContext.signIn` prøver først **demo-team login** mod DB-viewet `vvs_login_candidates` (kræver migrations `20260424120000_team_persist` + `20260424130000_login_view_with_org`). Demo-brugere findes ikke i `auth.users` — de gemmes i localStorage som `vvs.mockAuth` og bærer hele `organization`-objektet med sig (så `OrgContext` undgår RLS-blokerede queries). Først ved miss falder vi tilbage til ægte `supabase.auth.signInWithPassword`.
+
+Konsekvens: Når der kodes auth-relateret, husk at `user.organization_id` og `user.organization` kan komme direkte fra demo-login og IKKE fra `vvs_users`-opslag.
+
+### OrgContext og super-admin
+- `homeOrgId` er brugerens egen org. `org` er den **aktive** org (kan være en anden hvis super-admin har skiftet via `OrgSwitcher`).
+- Super-admins gemmer aktivt valg i localStorage som `vvs.activeOrgId` map'et på `userId`.
+- Org-tema (`primary_color`, `accent_color`) injiceres som CSS custom properties (`--brand-primary`, `--brand-accent`) på `document.documentElement` — derfor bruger `tailwind.config.js` `var(--brand-primary, #0EA5E9)` for `brand`-farven.
+
+### Routing (src/routes.jsx)
+- Tunge ruter (Konva, react-pdf) lazy-loadet
+- Public: `/k/:token` (kunde-portal, kun share_token), `/kunde/login`, `/kunde`
+- Auth-protected: `/`, `/jobs/...`, `/admin/*`, `/super`, `/onboarding`
+- `ProtectedRoute` redirect'er til `/login` hvis ingen user; `PublicOnlyRoute` redirect'er auth'ede brugere væk fra `/login`
 
 ## Coding preferences
 
@@ -71,8 +125,9 @@ Dette er en white-label SaaS. Hver VVS-virksomhed er en "organization" med fuldt
 - **Service role key:** KUN i edge functions, aldrig i frontend
 - **Alle tabeller prefixet:** `vvs_`
 - **RLS aktiveret** på alle tabeller uden undtagelse
-- **Migrations** i `supabase/migrations/` - navngiv `YYYYMMDDHHMMSS_description.sql`
+- **Migrations** i `supabase/migrations/` - navngiv `YYYYMMDDHHMMSS_description.sql`. Pt. kun 3 migrationer (init + de to demo-team migrationer fra auth-afsnittet) — let at læse hele DB-state.
 - **Seed data** (globale pakker) i `supabase/seed.sql`
+- **Edge functions er IKKE implementeret endnu** — der er ingen `supabase/functions/`-mappe. Steder hvor docs nævner "edge function" (kunde-portal RLS via `share_token`, service role-handlinger) er forward-looking; pt. løses `share_token`-adgang via DB-policy direkte.
 
 ### Tabeller (se PLAN.md sektion 4 for fulde schemas)
 
@@ -157,4 +212,5 @@ Service role key bruges KUN i edge functions - aldrig i frontend.
 ## Skal gennemlæses før start
 
 - `PLAN.md` - komplet build plan (datamodel, flows, faser)
-- Denne fil - coding rules
+- `EXTERNAL-SYSTEMS.md` - integrationer (CVR-lookup, Resend, e-conomic m.m.)
+- Denne fil - coding rules + arkitektur
