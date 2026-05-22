@@ -57,6 +57,15 @@ async function callEdgeFunction(name, payload) {
 // ============================================
 // Email (Resend via ef-send-email)
 // ============================================
+/**
+ * @param {{
+ *   to: string,
+ *   subject: string,
+ *   html: string,
+ *   text?: string,
+ *   from?: string,
+ * }} params
+ */
 export function sendEmail({ to, subject, html, text, from = 'VVS FLOW <tilbud@vvs.eventday.dk>' }) {
   return callEdgeFunction('ef-send-email', { to, subject, html, text, from })
 }

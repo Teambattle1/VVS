@@ -6,7 +6,7 @@ White-label SaaS til danske VVS-virksomheder. Multi-tenant webapp hvor montører
 
 - [`PLAN.md`](./PLAN.md) - Komplet build plan (datamodel, flows, udviklingsfaser)
 - [`CLAUDE.md`](./CLAUDE.md) - Instruktioner til Claude Code (coding rules, arkitektur)
-- [`START-HER.md`](./START-HER.md) - Kom-i-gang guide
+- [`EXTERNAL-SYSTEMS.md`](./EXTERNAL-SYSTEMS.md) - Eksterne integrationer (CVR, Resend, e-conomic m.m.)
 
 ## 🛠 Tech stack
 
@@ -19,7 +19,22 @@ White-label SaaS til danske VVS-virksomheder. Multi-tenant webapp hvor montører
 
 ## 🚀 Kom i gang
 
-Se [`START-HER.md`](./START-HER.md) for trin-for-trin guide.
+```bash
+npm install
+npm run dev         # vite dev server på :5173
+```
+
+Andre scripts:
+
+```bash
+npm run build       # produktions-build til dist/ (det Netlify deployer)
+npm run preview     # serv produktions-build lokalt
+npm run lint        # ESLint
+npm run typecheck   # tsc --noEmit (checkJs på JSDoc + inferens)
+npm run e2e         # Playwright smoke-tests
+```
+
+Konfigurer Supabase ved at kopiere `.env.example` til `.env` og udfylde `VITE_SUPABASE_URL` + `VITE_SUPABASE_ANON_KEY`. Uden disse falder appen tilbage til mock-data.
 
 ## 🌐 Domain
 

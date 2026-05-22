@@ -185,6 +185,21 @@ export async function updateJob(jobId, patch) {
 // ============================================
 // Customers
 // ============================================
+/**
+ * @param {{
+ *   orgId: string,
+ *   name: string,
+ *   email?: string,
+ *   phone?: string,
+ *   address?: string,
+ *   zip?: string,
+ *   city?: string,
+ *   lat?: number,
+ *   lon?: number,
+ *   customerType?: string,
+ *   defaultVatHandling?: string,
+ * }} params
+ */
 export async function createCustomer({
   orgId, name, email, phone, address, zip, city, lat, lon,
   customerType, defaultVatHandling,
@@ -213,6 +228,18 @@ export async function createCustomer({
 // ============================================
 // Rooms
 // ============================================
+/**
+ * @param {{
+ *   jobId: string,
+ *   orgId: string,
+ *   name: string,
+ *   roomType?: string,
+ *   widthCm?: number,
+ *   lengthCm?: number,
+ *   floorplanMode?: string,
+ *   sortOrder?: number,
+ * }} params
+ */
 export async function createRoom({ jobId, orgId, name, roomType, widthCm, lengthCm, floorplanMode, sortOrder }) {
   const { data, error } = await supabase
     .from('vvs_rooms')

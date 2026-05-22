@@ -30,9 +30,21 @@ npm install              # install deps
 npm run dev              # vite dev server på :5173 (åbner browser pga server.open i vite.config.js)
 npm run build            # vite build → dist/ (det Netlify deployer)
 npm run preview          # serv produktions-build lokalt
+npm run lint             # ESLint (flat config i eslint.config.js)
+npm run lint:fix         # ESLint med --fix
+npm run typecheck        # tsc --noEmit med checkJs på src/**/*.js (lib-filer)
+npm run e2e              # Playwright smoke tests (på port 7173 for at undgå
+                         # konflikt med andre TeamBattle-projekter på :5173)
+npm run e2e:ui           # Playwright UI mode (interaktiv debug)
 ```
 
-Der er **ingen test- eller lint-scripts** i package.json. Netlify kører selv `npm run build` (se `netlify.toml`), men kør det lokalt før push for at fange TS/import-fejl tidligt — en fejlet deploy støjer i loggen.
+Netlify kører selv `npm run build` (se `netlify.toml`), men kør **build + lint + typecheck + e2e** lokalt før push for at fange fejl tidligt — en fejlet deploy støjer i loggen.
+
+**Lint-baseline:** 0 errors, ~26 warnings (mest react-hooks v7 strikse regler + unused vars). Warnings blokerer ikke push; skærp `eslint.config.js` når kodebasen er ryddet op.
+
+**Typecheck-scope:** kun `src/**/*.js` (libs). JSX-komponenter er udeladt fordi TypeScript-inferens på React-props (specielt `key`) producerer for mange false positives. Tilføj JSDoc `@param`-types på lib-funktioner når der pakkes felter ind (se `jobsRepo.createCustomer` for mønster).
+
+**E2E-port:** Playwright bruger 7173, ikke 5173, fordi flere TeamBattle-projekter kører Vite på :5173 lokalt. `reuseExistingServer: true` ville ellers connecte til det forkerte projekt.
 
 **Netlify-gotcha:** `netlify.toml` returnerer bevidst 404 på ukendte `/assets/*` i stedet for SPA-fallback. Hvis en hashed asset mangler efter deploy, ses det som "JS module script fejler" — ikke en hvid side med React-routing.
 
@@ -54,6 +66,7 @@ Alle context-providers og repo-funktioner detekterer `hasSupabase` (eksporteret 
 **ID-præfikser signalerer mock vs DB:**
 - Mock-IDs har præfiks: `job-`, `room-`, `pkg-`, `pi-`, `i-`, `u-`, `org-mock`, `rtpl-`, `t-`
 - DB-IDs er rigtige UUIDs (regex `^[0-9a-f]{8}-[0-9a-f]{4}-...$`)
+- Mock-org'ens id er specifikt `org-mock-1`. Repo-funktioner tjekker eksplicit på den værdi og springer Supabase-writes over, så vi undgår console-støj når mock-brugere logger ind mod en ufuldstændig DB.
 
 Repo-funktioner i `JobsContext` følger mønsteret: optimistisk lokal mutation → hvis `hasSupabase && orgId && !id.startsWith('mock-prefix')` så persistér til DB → ved success refetch via `refresh()`. **Bryd ikke dette mønster** — det holder UI'et responsivt og lader appen virke uden Supabase under udvikling.
 
@@ -73,8 +86,9 @@ Konsekvens: Når der kodes auth-relateret, husk at `user.organization_id` og `us
 
 ### Routing (src/routes.jsx)
 - Tunge ruter (Konva, react-pdf) lazy-loadet
-- Public: `/k/:token` (kunde-portal, kun share_token), `/kunde/login`, `/kunde`
-- Auth-protected: `/`, `/jobs/...`, `/admin/*`
+- Public: `/k/:token` (kunde-portal, kun share_token), `/kunde/login`, `/kunde` (CustomerHistory)
+- Auth-protected montør-ruter: `/` (Dashboard), `/jobs/new`, `/jobs/:jobId`, `/jobs/:jobId/rooms/:roomId`
+- Auth-protected admin-ruter (under `AdminLayout`): `/admin/packages`, `/admin/items`, `/admin/users`, `/admin/activity`, `/admin/settings`, `/admin/integrations`. `/admin` redirecter til `/admin/packages`.
 - `ProtectedRoute` redirect'er til `/login` hvis ingen user; `PublicOnlyRoute` redirect'er auth'ede brugere væk fra `/login`
 - **Fjernede ruter:** `/super` (SuperAdmin Organizations) og `/onboarding` (org-create wizard) — single-tenant har ikke brug for dem.
 
@@ -129,7 +143,7 @@ Appen er bygget til ÉT firma — der findes ingen multi-tenant UI eller flows.
 - **Service role key:** KUN i edge functions, aldrig i frontend
 - **Alle tabeller prefixet:** `vvs_`
 - **RLS aktiveret** på alle tabeller uden undtagelse
-- **Migrations** i `supabase/migrations/` - navngiv `YYYYMMDDHHMMSS_description.sql`. Pt. kun 3 migrationer (init + de to demo-team migrationer fra auth-afsnittet) — let at læse hele DB-state.
+- **Migrations** i `supabase/migrations/` - navngiv `YYYYMMDDHHMMSS_description.sql`. Pt. 5 migrationer: init-schema, `team_persist`, `login_view_with_org` (de to demo-team migrationer fra auth-afsnittet), `single_tenant_seed` (seeder ét firma + 5 brugere), og `loosen_rls_all_tables` (åbner RLS på `vvs_*`-datatabeller fordi appen er single-tenant). Let at læse hele DB-state i ét hug.
 - **Seed data** (globale pakker) i `supabase/seed.sql`
 - **Edge functions er IKKE implementeret endnu** — der er ingen `supabase/functions/`-mappe. Steder hvor docs nævner "edge function" (kunde-portal RLS via `share_token`, service role-handlinger) er forward-looking; pt. løses `share_token`-adgang via DB-policy direkte.
 
