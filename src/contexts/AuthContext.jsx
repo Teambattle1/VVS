@@ -87,6 +87,7 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     let mounted = true
+    let unsub = null
 
     async function init() {
       if (hasSupabase) {
@@ -125,7 +126,13 @@ export function AuthProvider({ children }) {
             })
           }
         })
-        return () => sub.subscription.unsubscribe()
+        // Hvis komponenten allerede er unmountet mens init() await'ede,
+        // afmeld straks; ellers gem unsub så cleanup-funktionen kan køre den.
+        if (!mounted) {
+          sub.subscription.unsubscribe()
+          return
+        }
+        unsub = () => sub.subscription.unsubscribe()
       } else {
         // Mock-fallback (localStorage)
         try {
@@ -138,10 +145,12 @@ export function AuthProvider({ children }) {
       }
     }
 
-    const cleanup = init()
+    init()
     return () => {
       mounted = false
-      if (typeof cleanup === 'function') cleanup()
+      // init() er async og returnerer et Promise — cleanup kan derfor ikke
+      // læses fra dens returværdi. Unsub gemmes i stedet i closuren ovenfor.
+      if (unsub) unsub()
     }
   }, [])
 

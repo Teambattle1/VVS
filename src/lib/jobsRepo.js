@@ -58,7 +58,9 @@ function normalizeJob(row) {
           pricing_model: p.pricing_model,
           fixed_price: Number(p.fixed_price) || 0,
           hours: Number(p.hours) || 0,
-          hourly_rate: p.hourly_rate ? Number(p.hourly_rate) : null,
+          // != null (ikke falsy): hourly_rate = null betyder "brug org-standard",
+          // mens et eksplicit 0 er en gyldig override (gratis timeløn) der skal bevares.
+          hourly_rate: p.hourly_rate != null ? Number(p.hourly_rate) : null,
           notes: p.notes || '',
           timeline_text: p.timeline_text || '',
           status: p.status || 'draft',

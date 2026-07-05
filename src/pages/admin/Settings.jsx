@@ -57,7 +57,10 @@ async function resizeImage(file, maxPx = 512) {
   canvas.height = h
   const ctx = canvas.getContext('2d')
   ctx.drawImage(img, 0, 0, w, h)
-  return canvas.toDataURL('image/jpeg', 0.82)
+  // Behold PNG for typer der kan have transparens (PNG/SVG). JPEG har ingen
+  // alfakanal og ville bage en sort baggrund ind bag et gennemsigtigt logo.
+  const keepAlpha = /png|svg/i.test(file.type || '')
+  return canvas.toDataURL(keepAlpha ? 'image/png' : 'image/jpeg', 0.82)
 }
 
 export default function AdminSettings() {

@@ -1085,7 +1085,7 @@ export function JobsProvider({ children }) {
   }
 
   function persistAction(jobId, action) {
-    if (!hasSupabase || !orgId || jobId.startsWith('job-')) return
+    if (!hasSupabase || !orgId || !jobId || String(jobId).startsWith('job-')) return
     repo
       .logCustomerAction({
         jobId,

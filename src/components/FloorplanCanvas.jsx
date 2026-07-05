@@ -756,7 +756,7 @@ function PackageMarker({
                   </div>
                 </div>
                 <div className="font-bold text-slate-900 dark:text-white whitespace-nowrap">
-                  {formatDKK((it.quantity || 1) * (it.unit_price || 0))}
+                  {formatDKK((Number(it.quantity) || 0) * (Number(it.unit_price) || 0))}
                 </div>
               </li>
             ))}
